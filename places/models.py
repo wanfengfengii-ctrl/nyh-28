@@ -998,6 +998,21 @@ class MigrationDispute(models.Model):
             record.has_dispute = has_open
             record.save(update_fields=['has_dispute'])
 
+    def resolve(self, resolver='', resolution='', resolution_type=''):
+        if self.status in ['resolved', 'rejected', 'closed']:
+            raise ValidationError('当前争议已处理，无法重复解决')
+        self.status = 'resolved'
+        self.resolver = resolver
+        self.resolution = resolution
+        self.save()
+
+    def reopen(self, reopener='', reason=''):
+        if self.status not in ['resolved', 'rejected', 'closed']:
+            raise ValidationError('当前状态不允许重新开启')
+        self.status = 'open'
+        self.resolved_date = None
+        self.save()
+
 
 class MigrationVersion(models.Model):
     migration_record = models.ForeignKey(

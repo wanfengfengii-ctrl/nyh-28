@@ -689,6 +689,15 @@
         <a href="{% url 'places:dispute_list' %}" class="{% if 'dispute' in request.resolver_match.url_name %}active{% endif %}">争议记录</a>
         <a href="{% url 'places:operation_log_list' %}" class="{% if 'operation_log' in request.resolver_match.url_name %}active{% endif %}">操作日志</a>
         <a href="/admin/" target="_blank">管理后台</a>
+        {% if user.is_authenticated %}
+            <span style="margin-left: auto; color: #95a5a6; font-size: 0.9rem;">
+                欢迎，{{ user.username }}
+                {% if user.is_staff %}<span class="badge badge-success" style="margin-left: 0.5rem;">管理员</span>{% endif %}
+                <a href="{% url 'logout' %}" style="color: #e74c3c; margin-left: 0.75rem; text-decoration: none;">退出</a>
+            </span>
+        {% else %}
+            <a href="{% url 'login' %}" style="margin-left: auto; color: #3498db; text-decoration: none;">登录</a>
+        {% endif %}
     </nav>
 
     <main class="container">

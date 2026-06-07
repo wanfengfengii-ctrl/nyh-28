@@ -2,6 +2,8 @@ import json
 from django.db.models import Q, Count
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.contrib.admin.views.decorators import staff_member_required
 from django.urls import reverse
 from django.http import JsonResponse
 from django.utils import timezone
@@ -1501,6 +1503,7 @@ def migration_detail(request, pk):
     return render(request, 'places/migration_detail.html', context)
 
 
+@login_required
 def migration_create(request):
     place_id = request.GET.get('place_id', '')
     if request.method == 'POST':
@@ -1533,6 +1536,7 @@ def migration_create(request):
     return render(request, 'places/form.html', context)
 
 
+@login_required
 def migration_edit(request, pk):
     record = get_object_or_404(MigrationRecord, pk=pk)
 
@@ -1564,6 +1568,7 @@ def migration_edit(request, pk):
     return render(request, 'places/form.html', context)
 
 
+@login_required
 def migration_delete(request, pk):
     record = get_object_or_404(
         MigrationRecord.objects.select_related('place_name'),
@@ -1593,6 +1598,7 @@ def migration_delete(request, pk):
     return render(request, 'places/delete_confirm.html', context)
 
 
+@login_required
 def migration_submit(request, pk):
     record = get_object_or_404(MigrationRecord, pk=pk)
 
@@ -1620,6 +1626,7 @@ def migration_submit(request, pk):
     return render(request, 'places/migration_submit.html', context)
 
 
+@staff_member_required
 def migration_review_list(request):
     records = MigrationRecord.objects.filter(
         status__in=['submitted']
@@ -1631,6 +1638,7 @@ def migration_review_list(request):
     return render(request, 'places/migration_review_list.html', context)
 
 
+@staff_member_required
 def migration_review_detail(request, pk):
     record = get_object_or_404(
         MigrationRecord.objects.select_related('place_name'),
@@ -1684,6 +1692,7 @@ def migration_review_detail(request, pk):
     return render(request, 'places/migration_review_detail.html', context)
 
 
+@login_required
 def migration_stage_create(request, migration_pk):
     record = get_object_or_404(MigrationRecord, pk=migration_pk)
 
@@ -1714,6 +1723,7 @@ def migration_stage_create(request, migration_pk):
     return render(request, 'places/migration_stage_form.html', context)
 
 
+@login_required
 def migration_stage_edit(request, pk):
     stage = get_object_or_404(
         MigrationStage.objects.select_related('migration_record'),
@@ -1747,6 +1757,7 @@ def migration_stage_edit(request, pk):
     return render(request, 'places/migration_stage_form.html', context)
 
 
+@login_required
 def migration_stage_delete(request, pk):
     stage = get_object_or_404(
         MigrationStage.objects.select_related('migration_record'),
@@ -1778,6 +1789,7 @@ def migration_stage_delete(request, pk):
     return render(request, 'places/delete_confirm.html', context)
 
 
+@login_required
 def migration_evidence_create(request, migration_pk):
     record = get_object_or_404(MigrationRecord, pk=migration_pk)
 
@@ -1812,6 +1824,7 @@ def migration_evidence_create(request, migration_pk):
     return render(request, 'places/migration_evidence_form.html', context)
 
 
+@login_required
 def migration_evidence_delete(request, pk):
     evidence = get_object_or_404(
         MigrationEvidence.objects.select_related('migration_record', 'literature'),
@@ -1843,6 +1856,7 @@ def migration_evidence_delete(request, pk):
     return render(request, 'places/delete_confirm.html', context)
 
 
+@login_required
 def migration_dispute_create(request, migration_pk):
     record = get_object_or_404(MigrationRecord, pk=migration_pk)
 
@@ -1893,6 +1907,7 @@ def migration_dispute_detail(request, pk):
     return render(request, 'places/migration_dispute_detail.html', context)
 
 
+@login_required
 def migration_dispute_resolve(request, pk):
     dispute = get_object_or_404(
         MigrationDispute.objects.select_related('migration_record'),
@@ -1905,20 +1920,23 @@ def migration_dispute_resolve(request, pk):
         if not resolution:
             messages.error(request, '解决争议时必须填写解决方案')
         else:
-            dispute.status = 'resolved'
-            dispute.resolution = resolution
-            dispute.resolver = resolver
-            dispute.save()
-            OperationLog.log(
-                target_type='migration',
-                target_id=dispute.migration_record.id,
-                action='resolve',
-                target_name=dispute.migration_record.title,
-                detail=f'解决迁移争议：{dispute.title}',
-                ip_address=_get_client_ip(request),
-            )
-            messages.success(request, '争议已解决！')
-            return redirect('places:migration_dispute_detail', pk=dispute.pk)
+            try:
+                dispute.resolve(
+                    resolver=resolver,
+                    resolution=resolution,
+                )
+                OperationLog.log(
+                    target_type='migration',
+                    target_id=dispute.migration_record.id,
+                    action='resolve',
+                    target_name=dispute.migration_record.title,
+                    detail=f'解决迁移争议：{dispute.title}',
+                    ip_address=_get_client_ip(request),
+                )
+                messages.success(request, '争议已解决！')
+                return redirect('places:migration_dispute_detail', pk=dispute.pk)
+            except ValidationError as e:
+                messages.error(request, str(e))
 
     context = {
         'dispute': dispute,
@@ -1926,6 +1944,7 @@ def migration_dispute_resolve(request, pk):
     return render(request, 'places/migration_dispute_resolve.html', context)
 
 
+@login_required
 def migration_dispute_reopen(request, pk):
     dispute = get_object_or_404(
         MigrationDispute.objects.select_related('migration_record'),
@@ -1938,18 +1957,23 @@ def migration_dispute_reopen(request, pk):
         if not reason:
             messages.error(request, '重新开启争议时必须填写理由')
         else:
-            dispute.status = 'open'
-            dispute.save()
-            OperationLog.log(
-                target_type='migration',
-                target_id=dispute.migration_record.id,
-                action='update',
-                target_name=dispute.migration_record.title,
-                detail=f'重新开启迁移争议：{dispute.title}，理由：{reason[:50]}...',
-                ip_address=_get_client_ip(request),
-            )
-            messages.success(request, '争议已重新开启！')
-            return redirect('places:migration_dispute_detail', pk=dispute.pk)
+            try:
+                dispute.reopen(
+                    reopener=reopener,
+                    reason=reason,
+                )
+                OperationLog.log(
+                    target_type='migration',
+                    target_id=dispute.migration_record.id,
+                    action='update',
+                    target_name=dispute.migration_record.title,
+                    detail=f'重新开启迁移争议：{dispute.title}，理由：{reason[:50]}...',
+                    ip_address=_get_client_ip(request),
+                )
+                messages.success(request, '争议已重新开启！')
+                return redirect('places:migration_dispute_detail', pk=dispute.pk)
+            except ValidationError as e:
+                messages.error(request, str(e))
 
     context = {
         'dispute': dispute,
