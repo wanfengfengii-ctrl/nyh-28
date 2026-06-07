@@ -16,13 +16,20 @@
                 {% endif %}
             </div>
             <div style="text-align: right;">
-                <span class="badge {% if place.collation_status == 'completed' %}badge-success{% elif place.collation_status == 'in_progress' %}badge-warning{% else %}badge-secondary{% endif %}" style="font-size: 0.9rem; padding: 0.4rem 0.8rem;">
-                    {{ place.get_collation_status_display }}
-                </span>
-                {% if place.has_unresolved_disputes %}
-                    <div style="margin-top: 0.5rem;">
-                        <span class="badge badge-danger">有未解决争议</span>
-                    </div>
+                <div style="margin-bottom: 0.5rem;">
+                    <span class="badge {% if place.collation_status == 'completed' %}badge-success{% elif place.collation_status == 'in_progress' %}badge-warning{% else %}badge-secondary{% endif %}" style="font-size: 0.9rem; padding: 0.4rem 0.8rem;">
+                        {{ place.get_collation_status_display }}
+                    </span>
+                    {% if place.has_unresolved_disputes %}
+                        <span class="badge badge-danger" style="margin-left: 4px;">有未解决争议</span>
+                    {% endif %}
+                </div>
+                {% if place.can_delete %}
+                    <a href="{% url 'places:place_delete' place.pk %}" class="btn btn-danger" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">删除地名</a>
+                {% else %}
+                    <span class="badge badge-secondary" style="font-size: 0.8rem;" title="存在关联数据，无法删除">
+                        受保护（存在关联数据）
+                    </span>
                 {% endif %}
             </div>
         </div>
@@ -103,7 +110,10 @@
     </div>
 
     <div class="card">
-        <h3>异名关系（{{ related_places|length }} 条）</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="margin: 0;">异名关系（{{ related_places|length }} 条）</h3>
+            <a href="{% url 'places:relation_create' %}?name_a={{ place.pk }}" class="btn btn-success" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">+ 新增关系</a>
+        </div>
         {% if related_places %}
             {% for item in related_places %}
                 <div class="relation-item {% if item.relation.confirmed %}confirmed{% endif %}">
@@ -126,6 +136,7 @@
                             <span class="badge {% if item.relation.reliability >= 80 %}badge-success{% elif item.relation.reliability >= 50 %}badge-warning{% else %}badge-danger{% endif %}">
                                 可信度 {{ item.relation.reliability }}%
                             </span>
+                            <a href="{% url 'places:relation_delete' item.relation.pk %}" class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; margin-left: 0.5rem;">删除</a>
                         </div>
                     </div>
                     {% if item.relation.description %}
@@ -141,15 +152,21 @@
     </div>
 
     <div class="card">
-        <h3>校勘意见</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="margin: 0;">校勘意见</h3>
+            <a href="{% url 'places:collation_create' %}?place_id={{ place.pk }}" class="btn btn-success" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">+ 新增校勘意见</a>
+        </div>
         {% if collation_notes %}
             {% for note in collation_notes %}
                 <div style="padding: 1rem; background: #f8f9fa; border-radius: 6px; margin-bottom: 1rem;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                         <strong style="color: #2c3e50;">{{ note.title }}</strong>
-                        <span style="color: #7f8c8d; font-size: 0.85rem;">
-                            {{ note.collator|default:'匿名' }} · {{ note.collation_date|date:"Y-m-d" }}
-                        </span>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <span style="color: #7f8c8d; font-size: 0.85rem;">
+                                {{ note.collator|default:'匿名' }} · {{ note.collation_date|date:"Y-m-d" }}
+                            </span>
+                            <a href="{% url 'places:collation_delete' note.pk %}" class="btn btn-danger" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">删除</a>
+                        </div>
                     </div>
                     <p style="color: #555; margin-bottom: 0.5rem;">{{ note.content }}</p>
                     {% if note.conclusion %}
@@ -168,15 +185,21 @@
     </div>
 
     <div class="card">
-        <h3>争议记录</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="margin: 0;">争议记录</h3>
+            <a href="{% url 'places:dispute_create' %}?place_id={{ place.pk }}" class="btn btn-success" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">+ 新增争议</a>
+        </div>
         {% if disputes %}
             {% for dispute in disputes %}
                 <div style="padding: 1rem; background: {% if dispute.status == 'open' %}#fff5f5{% else %}#f0fff4{% endif %}; border-radius: 6px; margin-bottom: 1rem; border-left: 4px solid {% if dispute.status == 'open' %}#e74c3c{% else %}#27ae60{% endif %};">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                         <strong style="color: #2c3e50;">{{ dispute.title }}</strong>
-                        <span class="badge {% if dispute.status == 'open' %}badge-danger{% else %}badge-success{% endif %}">
-                            {{ dispute.get_status_display }}
-                        </span>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <span class="badge {% if dispute.status == 'open' %}badge-danger{% else %}badge-success{% endif %}">
+                                {{ dispute.get_status_display }}
+                            </span>
+                            <a href="{% url 'places:dispute_delete' dispute.pk %}" class="btn btn-danger" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">删除</a>
+                        </div>
                     </div>
                     <p style="color: #555; margin-bottom: 0.5rem;">{{ dispute.content }}</p>
                     <div style="font-size: 0.85rem; color: #7f8c8d;">

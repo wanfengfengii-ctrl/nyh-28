@@ -38,7 +38,10 @@
     <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <h3 style="margin-bottom: 0;">关系列表</h3>
-            <span style="color: #7f8c8d; font-size: 0.9rem;">共 {{ relations|length }} 条记录</span>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <span style="color: #7f8c8d; font-size: 0.9rem;">共 {{ relations|length }} 条记录</span>
+                <a href="{% url 'places:relation_create' %}" class="btn btn-success">+ 新增关系</a>
+            </div>
         </div>
 
         {% if relations %}
@@ -51,6 +54,7 @@
                         <th>可信度</th>
                         <th>状态</th>
                         <th>创建时间</th>
+                        <th>操作</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -83,6 +87,9 @@
                             </td>
                             <td style="color: #7f8c8d; font-size: 0.85rem;">
                                 {{ rel.created_at|date:"Y-m-d" }}
+                            </td>
+                            <td>
+                                <a href="{% url 'places:relation_delete' rel.pk %}" class="btn btn-danger" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">删除</a>
                             </td>
                         </tr>
                     {% endfor %}

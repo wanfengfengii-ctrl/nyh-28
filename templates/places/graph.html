@@ -144,12 +144,42 @@
                 </select>
             </div>
             <div class="filter-group">
+                <label>年代关键词</label>
+                <input type="text" id="filter-year-keyword" placeholder="如：唐代、明朝">
+            </div>
+            <div class="filter-group">
                 <label>始见年代</label>
-                <input type="text" id="filter-year" placeholder="如：唐代">
+                <input type="text" id="filter-start-year" placeholder="如：唐初">
+            </div>
+            <div class="filter-group">
+                <label>废止年代</label>
+                <input type="text" id="filter-end-year" placeholder="如：清末">
             </div>
             <div class="filter-group">
                 <label>最低可信度</label>
-                <input type="number" id="filter-reliability" min="0" max="100" value="0" placeholder="0-100">
+                <input type="number" id="filter-min-reliability" min="0" max="100" value="0" placeholder="0-100">
+            </div>
+            <div class="filter-group">
+                <label>最高可信度</label>
+                <input type="number" id="filter-max-reliability" min="0" max="100" value="100" placeholder="0-100">
+            </div>
+            <div class="filter-group">
+                <label>关系类型</label>
+                <select id="filter-relation-type">
+                    <option value="">全部类型</option>
+                    <option value="alias">异名</option>
+                    <option value="successor">沿革</option>
+                    <option value="related">相关</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>校勘状态</label>
+                <select id="filter-collation-status">
+                    <option value="">全部状态</option>
+                    <option value="pending">待校勘</option>
+                    <option value="in_progress">校勘中</option>
+                    <option value="completed">已完成</option>
+                </select>
             </div>
             <div class="filter-group">
                 <button class="btn" onclick="loadGraphData()">应用筛选</button>
@@ -301,13 +331,23 @@
 
         function loadGraphData() {
             var region = document.getElementById('filter-region').value;
-            var year = document.getElementById('filter-year').value;
-            var reliability = document.getElementById('filter-reliability').value;
+            var yearKeyword = document.getElementById('filter-year-keyword').value;
+            var startYear = document.getElementById('filter-start-year').value;
+            var endYear = document.getElementById('filter-end-year').value;
+            var minReliability = document.getElementById('filter-min-reliability').value;
+            var maxReliability = document.getElementById('filter-max-reliability').value;
+            var relationType = document.getElementById('filter-relation-type').value;
+            var collationStatus = document.getElementById('filter-collation-status').value;
 
             var params = new URLSearchParams();
             if (region) params.append('region', region);
-            if (year) params.append('start_year', year);
-            if (reliability) params.append('min_reliability', reliability);
+            if (yearKeyword) params.append('year', yearKeyword);
+            if (startYear) params.append('start_year', startYear);
+            if (endYear) params.append('end_year', endYear);
+            if (minReliability && minReliability != 0) params.append('min_reliability', minReliability);
+            if (maxReliability && maxReliability != 100) params.append('max_reliability', maxReliability);
+            if (relationType) params.append('type', relationType);
+            if (collationStatus) params.append('collation_status', collationStatus);
 
             var url = '{% url "places:graph_data" %}?' + params.toString();
 
@@ -389,8 +429,13 @@
 
         function resetFilters() {
             document.getElementById('filter-region').value = '';
-            document.getElementById('filter-year').value = '';
-            document.getElementById('filter-reliability').value = '';
+            document.getElementById('filter-year-keyword').value = '';
+            document.getElementById('filter-start-year').value = '';
+            document.getElementById('filter-end-year').value = '';
+            document.getElementById('filter-min-reliability').value = '0';
+            document.getElementById('filter-max-reliability').value = '100';
+            document.getElementById('filter-relation-type').value = '';
+            document.getElementById('filter-collation-status').value = '';
             loadGraphData();
         }
 
