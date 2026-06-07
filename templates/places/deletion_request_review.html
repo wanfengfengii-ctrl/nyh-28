@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block title %}审核删除申请{% endblock %}
+
+{% block content %}
+    <div style="margin-bottom: 1rem;">
+        <a href="{% url 'places:deletion_request_detail' deletion_request.pk %}" style="color: #3498db; text-decoration: none;">← 返回详情</a>
+    </div>
+
+    <div class="card">
+        <h2 style="margin-bottom: 1rem;">审核删除申请</h2>
+
+        <div class="alert alert-warning">
+            <strong>⚠ 请谨慎审核：</strong>删除申请通过后，地名及其关联数据将被删除。
+        </div>
+
+        <div style="padding: 1rem; background: #f8f9fa; border-radius: 6px; margin-bottom: 1.5rem;">
+            <h4 style="margin-top: 0;">{{ deletion_request.place_name.name }}</h4>
+            <p style="margin-bottom: 0.5rem;"><strong>申请人：</strong>{{ deletion_request.applicant|default:'-' }}</p>
+            <p style="margin-bottom: 0.5rem;"><strong>申请时间：</strong>{{ deletion_request.created_at|date:"Y-m-d H:i" }}</p>
+            <p style="margin-bottom: 0.5rem;"><strong>删除理由：</strong></p>
+            <p style="background: white; padding: 0.75rem; border-radius: 4px; margin: 0;">{{ deletion_request.reason }}</p>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>审核意见 <span style="color: #e74c3c;">*</span></label>
+                <textarea name="comment" class="form-textarea" rows="4" placeholder="请填写审核意见..." required></textarea>
+            </div>
+            <div class="form-group">
+                <label>审核结果</label>
+                <select name="action" class="form-select">
+                    <option value="approve">通过</option>
+                    <option value="reject">驳回</option>
+                </select>
+            </div>
+            <div class="action-bar">
+                <a href="{% url 'places:deletion_request_detail' deletion_request.pk %}" class="btn btn-secondary">取消</a>
+                <button type="submit" class="btn btn-primary">提交审核结果</button>
+            </div>
+        </form>
+    </div>
+{% endblock %}

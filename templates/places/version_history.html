@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ place.name }} - 版本历史{% endblock %}
+
+{% block content %}
+    <div style="margin-bottom: 1rem;">
+        <a href="{% url 'places:place_detail' place.pk %}" style="color: #3498db; text-decoration: none;">← 返回详情</a>
+    </div>
+
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h2 style="margin: 0;">版本历史 - {{ place.name }}</h2>
+            <span class="badge badge-info">共 {{ versions|length }} 个版本</span>
+        </div>
+    </div>
+
+    {% if versions %}
+        {% for version in versions %}
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <span style="font-size: 1.5rem; font-weight: bold; color: #3498db;">v{{ version.version_number }}</span>
+                        {% if version.change_reason %}
+                            <span class="badge badge-warning">{{ version.change_reason }}</span>
+                        {% endif %}
+                    </div>
+                    <span style="color: #7f8c8d; font-size: 0.9rem;">{{ version.created_at|date:"Y-m-d H:i:s" }}</span>
+                </div>
+
+                {% if version.changed_by %}
+                    <p style="color: #666; margin-bottom: 1rem;">操作人：{{ version.changed_by }}</p>
+                {% endif %}
+
+                <div style="margin-bottom: 0.75rem; color: #666;">
+                    变更字段（{{ version.change_fields|length }} 个）：
+                    {% for field in version.change_fields %}
+                        <span class="badge badge-info" style="margin-right: 0.3rem;">{{ field }}</span>
+                    {% endfor %}
+                </div>
+
+                {% with changes=version.get_changes_dict %}
+                    {% if changes %}
+                        <div style="background: #f8f9fa; padding: 1rem; border-radius: 6px;">
+                            {% for field, change in changes.items %}
+                                <div class="version-change" style="margin-bottom: 0.75rem;">
+                                    <strong style="font-size: 0.9rem; color: #2c3e50; display: block; margin-bottom: 0.25rem;">{{ field }}：</strong>
+                                    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                                        <div style="flex: 1; min-width: 150px;">
+                                            <span style="color: #7f8c8d; font-size: 0.8rem;">变更前</span>
+                                            <div class="old" style="margin-top: 0.25rem;">{{ change.old|default:'(空)' }}</div>
+                                        </div>
+                                        <div style="flex: 1; min-width: 150px;">
+                                            <span style="color: #7f8c8d; font-size: 0.8rem;">变更后</span>
+                                            <div class="new" style="margin-top: 0.25rem;">{{ change.new|default:'(空)' }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endwith %}
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="card">
+            <div class="empty-state">
+                <p>暂无版本记录</p>
+            </div>
+        </div>
+    {% endif %}
+{% endblock %}

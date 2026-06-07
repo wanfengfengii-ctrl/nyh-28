@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block title %}删除申请列表{% endblock %}
+
+{% block content %}
+    <h2 style="margin-bottom: 1rem;">删除申请列表</h2>
+
+    <div class="card">
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+            <a href="{% url 'places:deletion_request_list' %}" class="btn {% if not status %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
+                全部
+            </a>
+            <a href="{% url 'places:deletion_request_list' %}?status=pending" class="btn {% if status == 'pending' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
+                待审核
+            </a>
+            <a href="{% url 'places:deletion_request_list' %}?status=approved" class="btn {% if status == 'approved' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
+                已批准
+            </a>
+            <a href="{% url 'places:deletion_request_list' %}?status=rejected" class="btn {% if status == 'rejected' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
+                已驳回
+            </a>
+            <a href="{% url 'places:deletion_request_list' %}?status=completed" class="btn {% if status == 'completed' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
+                已执行
+            </a>
+            <a href="{% url 'places:deletion_request_list' %}?status=cancelled" class="btn {% if status == 'cancelled' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
+                已取消
+            </a>
+        </div>
+
+        {% if requests %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>地名</th>
+                        <th>申请人</th>
+                        <th>申请时间</th>
+                        <th>删除理由</th>
+                        <th>状态</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for req in requests %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'places:deletion_request_detail' req.pk %}" style="color: #2980b9; text-decoration: none;">
+                                    {{ req.place_name.name }}
+                                </a>
+                            </td>
+                            <td>{{ req.applicant|default:'-' }}</td>
+                            <td>{{ req.created_at|date:"Y-m-d" }}</td>
+                            <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                {{ req.reason|truncatechars:50 }}
+                            </td>
+                            <td>
+                                <span class="badge {% if req.status == 'approved' or req.status == 'completed' %}badge-success{% elif req.status == 'rejected' or req.status == 'cancelled' %}badge-secondary{% else %}badge-warning{% endif %}">
+                                    {{ req.get_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="{% url 'places:deletion_request_detail' req.pk %}" class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">详情</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            {% if is_paginated %}
+                <div class="pagination">
+                    {% if page_obj.has_previous %}
+                        <a href="?{% if status %}status={{ status }}&{% endif %}page={{ page_obj.previous_page_number }}" class="btn btn-secondary">上一页</a>
+                    {% endif %}
+                    <span style="padding: 0.5rem 1rem;">第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页</span>
+                    {% if page_obj.has_next %}
+                        <a href="?{% if status %}status={{ status }}&{% endif %}page={{ page_obj.next_page_number }}" class="btn btn-secondary">下一页</a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <p>暂无删除申请</p>
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}

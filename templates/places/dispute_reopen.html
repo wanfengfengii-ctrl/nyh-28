@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block title %}重新开启争议{% endblock %}
+
+{% block content %}
+    <div style="margin-bottom: 1rem;">
+        <a href="{% url 'places:dispute_detail' dispute.pk %}" style="color: #3498db; text-decoration: none;">← 返回争议详情</a>
+    </div>
+
+    <div class="card">
+        <h2 style="margin-bottom: 1rem;">重新开启争议</h2>
+
+        <div style="padding: 1rem; background: #f8f9fa; border-radius: 6px; margin-bottom: 1.5rem;">
+            <h4 style="margin-top: 0;">{{ dispute.title }}</h4>
+            <p style="color: #7f8c8d; margin-bottom: 0.5rem;">关联地名：
+                <a href="{% url 'places:place_detail' dispute.place_name.pk %}" style="color: #2980b9;">{{ dispute.place_name.name }}</a>
+            </p>
+            <p style="margin-bottom: 0.5rem;"><strong>当前状态：</strong>
+                <span class="badge {% if dispute.status == 'open' or dispute.status == 'investigating' %}badge-danger{% else %}badge-success{% endif %}">
+                    {{ dispute.get_status_display }}
+                </span>
+            </p>
+            {% if dispute.resolution %}
+                <p style="margin-bottom: 0.5rem;"><strong>原解决方案：</strong></p>
+                <p style="background: white; padding: 0.75rem; border-radius: 4px; margin: 0;">{{ dispute.resolution }}</p>
+            {% endif %}
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>重新开启理由 <span style="color: #e74c3c;">*</span></label>
+                <textarea name="reopen_reason" class="form-textarea" rows="5" placeholder="请说明重新开启此争议的理由..." required></textarea>
+            </div>
+            <div class="action-bar">
+                <a href="{% url 'places:dispute_detail' dispute.pk %}" class="btn btn-secondary">取消</a>
+                <button type="submit" class="btn btn-warning">确认重新开启</button>
+            </div>
+        </form>
+    </div>
+{% endblock %}

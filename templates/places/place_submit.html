@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block title %}提交审核 - {{ place.name }}{% endblock %}
+
+{% block content %}
+    <div style="margin-bottom: 1rem;">
+        <a href="{% url 'places:place_detail' place.pk %}" style="color: #3498db; text-decoration: none;">← 返回详情</a>
+    </div>
+
+    <div class="card">
+        <h2 style="margin-bottom: 1rem;">提交审核</h2>
+
+        {% if place.review_status == 'draft' or place.review_status == 'rejected' %}
+            <div class="alert alert-info">
+                <strong>ℹ 提示：</strong>提交后地名将进入审核流程，审核通过前不可进行校勘操作。
+            </div>
+
+            <div style="padding: 1rem; background: #f8f9fa; border-radius: 6px; margin-bottom: 1.5rem;">
+                <h4 style="margin-top: 0;">{{ place.name }}</h4>
+                {% if place.alternative_name %}
+                    <p style="color: #7f8c8d; margin-bottom: 0.5rem;">别名：{{ place.alternative_name }}</p>
+                {% endif %}
+                <p style="margin-bottom: 0.5rem;"><strong>地区：</strong>{{ place.region|default:'-' }}</p>
+                <p style="margin: 0;"><strong>可信度：</strong>{{ place.reliability }}%</p>
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>提交人</label>
+                    <input type="text" name="submitter" class="form-input" placeholder="请输入您的姓名">
+                </div>
+                <div class="action-bar">
+                    <a href="{% url 'places:place_detail' place.pk %}" class="btn btn-secondary">取消</a>
+                    <button type="submit" class="btn btn-primary">确认提交</button>
+                </div>
+            </form>
+        {% else %}
+            <div class="alert alert-warning">
+                该地名当前状态为 <strong>{{ place.get_review_status_display }}</strong>，无需重复提交。
+            </div>
+            <div style="text-align: center; margin-top: 1rem;">
+                <a href="{% url 'places:place_detail' place.pk %}" class="btn btn-primary">返回详情</a>
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}

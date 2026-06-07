@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+
+{% block title %}删除申请详情{% endblock %}
+
+{% block content %}
+    <div style="margin-bottom: 1rem;">
+        <a href="{% url 'places:deletion_request_list' %}" style="color: #3498db; text-decoration: none;">← 返回删除申请列表</a>
+    </div>
+
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+            <h2 style="margin: 0;">删除申请详情</h2>
+            <span class="badge {% if deletion_request.status == 'approved' or deletion_request.status == 'completed' %}badge-success{% elif deletion_request.status == 'rejected' or deletion_request.status == 'cancelled' %}badge-secondary{% else %}badge-warning{% endif %}" style="font-size: 1rem; padding: 0.5rem 1rem;">
+                {{ deletion_request.get_status_display }}
+            </span>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3 style="margin-bottom: 1rem;">申请信息</h3>
+        <div class="detail-grid">
+            <div class="detail-item">
+                <div class="label">申请地名</div>
+                <div class="value">
+                    <a href="{% url 'places:place_detail' deletion_request.place_name.pk %}" style="color: #2980b9; text-decoration: none;">
+                        {{ deletion_request.place_name.name }}
+                    </a>
+                </div>
+            </div>
+            <div class="detail-item">
+                <div class="label">申请人</div>
+                <div class="value">{{ deletion_request.applicant|default:'-' }}</div>
+            </div>
+            <div class="detail-item">
+                <div class="label">申请时间</div>
+                <div class="value">{{ deletion_request.created_at|date:"Y-m-d H:i" }}</div>
+            </div>
+            <div class="detail-item">
+                <div class="label">审核人</div>
+                <div class="value">{{ deletion_request.reviewer|default:'-' }}</div>
+            </div>
+            {% if deletion_request.reviewed_at %}
+                <div class="detail-item">
+                    <div class="label">审核时间</div>
+                    <div class="value">{{ deletion_request.reviewed_at|date:"Y-m-d H:i" }}</div>
+                </div>
+            {% endif %}
+            {% if deletion_request.executed_at %}
+                <div class="detail-item">
+                    <div class="label">执行时间</div>
+                    <div class="value">{{ deletion_request.executed_at|date:"Y-m-d H:i" }}</div>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="section-divider"></div>
+
+        <div class="detail-item">
+            <div class="label">删除理由</div>
+            <div class="value" style="background: #f8f9fa; padding: 1rem; border-radius: 6px; margin-top: 0.5rem; white-space: pre-wrap;">
+                {{ deletion_request.reason }}
+            </div>
+        </div>
+
+        {% if deletion_request.review_comment %}
+            <div class="section-divider"></div>
+            <div class="detail-item">
+                <div class="label">审核意见</div>
+                <div class="value" style="background: #f8f9fa; padding: 1rem; border-radius: 6px; margin-top: 0.5rem; white-space: pre-wrap;">
+                    {{ deletion_request.review_comment }}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h3 style="margin-bottom: 1rem;">地名信息</h3>
+        <div class="detail-grid">
+            <div class="detail-item">
+                <div class="label">地名</div>
+                <div class="value">{{ deletion_request.place_name.name }}</div>
+            </div>
+            <div class="detail-item">
+                <div class="label">别名</div>
+                <div class="value">{{ deletion_request.place_name.alternative_name|default:'-' }}</div>
+            </div>
+            <div class="detail-item">
+                <div class="label">地区</div>
+                <div class="value">{{ deletion_request.place_name.region|default:'-' }}</div>
+            </div>
+            <div class="detail-item">
+                <div class="label">可信度</div>
+                <div class="value">{{ deletion_request.place_name.reliability }}%</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3 style="margin-bottom: 1rem;">关联数据</h3>
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 120px; padding: 1rem; background: #f8f9fa; border-radius: 6px; text-align: center;">
+                <div style="font-size: 1.5rem; font-weight: bold; color: #3498db;">{{ related_literatures }}</div>
+                <div style="color: #7f8c8d; font-size: 0.85rem;">文献引用</div>
+            </div>
+            <div style="flex: 1; min-width: 120px; padding: 1rem; background: #f8f9fa; border-radius: 6px; text-align: center;">
+                <div style="font-size: 1.5rem; font-weight: bold; color: #e74c3c;">{{ related_relations }}</div>
+                <div style="color: #7f8c8d; font-size: 0.85rem;">异名关系</div>
+            </div>
+            <div style="flex: 1; min-width: 120px; padding: 1rem; background: #f8f9fa; border-radius: 6px; text-align: center;">
+                <div style="font-size: 1.5rem; font-weight: bold; color: #f39c12;">{{ related_collations }}</div>
+                <div style="color: #7f8c8d; font-size: 0.85rem;">校勘意见</div>
+            </div>
+            <div style="flex: 1; min-width: 120px; padding: 1rem; background: #f8f9fa; border-radius: 6px; text-align: center;">
+                <div style="font-size: 1.5rem; font-weight: bold; color: #9b59b6;">{{ related_disputes }}</div>
+                <div style="color: #7f8c8d; font-size: 0.85rem;">争议记录</div>
+            </div>
+        </div>
+        {% if not deletion_request.place_name.can_delete %}
+            <div class="alert alert-warning" style="margin-top: 1rem;">
+                ⚠ 该地名存在关联数据，删除后关联数据也将一并处理。
+            </div>
+        {% endif %}
+    </div>
+
+    {% if deletion_request.status == 'pending' %}
+        <div class="card">
+            <h3 style="margin-bottom: 1rem;">操作</h3>
+            <div class="action-bar">
+                <a href="{% url 'places:deletion_request_review' deletion_request.pk %}" class="btn btn-primary">审核</a>
+                <a href="{% url 'places:deletion_request_cancel' deletion_request.pk %}" class="btn btn-secondary">取消申请</a>
+            </div>
+        </div>
+    {% elif deletion_request.status == 'approved' %}
+        <div class="card">
+            <h3 style="margin-bottom: 1rem;">操作</h3>
+            <div class="alert alert-info">
+                ℹ 该删除申请已通过审核，可执行删除操作。
+            </div>
+            <div class="action-bar">
+                <a href="{% url 'places:deletion_request_execute' deletion_request.pk %}" class="btn btn-danger">执行删除</a>
+            </div>
+        </div>
+    {% endif %}
+{% endblock %}

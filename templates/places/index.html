@@ -20,9 +20,17 @@
             <div class="number" style="color: {% if open_disputes > 0 %}#e74c3c{% else %}#27ae60{% endif %};">{{ open_disputes }}</div>
             <div class="label">待解决争议</div>
         </div>
+        <div class="stat-card" style="border-top-color: #f39c12;">
+            <div class="number" style="color: #f39c12;">{{ pending_reviews }}</div>
+            <div class="label">待审核地名</div>
+        </div>
+        <div class="stat-card" style="border-top-color: #e74c3c;">
+            <div class="number" style="color: #e74c3c;">{{ pending_deletions }}</div>
+            <div class="label">待处理删除申请</div>
+        </div>
     </div>
 
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
         <div class="card">
             <h3>最近添加的古地名</h3>
             {% if recent_places %}
@@ -31,6 +39,7 @@
                         <tr>
                             <th>地名</th>
                             <th>地区</th>
+                            <th>审核状态</th>
                             <th>可信度</th>
                         </tr>
                     </thead>
@@ -43,6 +52,11 @@
                                     </a>
                                 </td>
                                 <td>{{ place.region|default:'-' }}</td>
+                                <td>
+                                    <span class="badge {% if place.review_status == 'approved' or place.review_status == 'archived' %}badge-success{% elif place.review_status == 'rejected' %}badge-danger{% elif place.review_status == 'submitted' or place.review_status == 'reviewing' %}badge-warning{% else %}badge-secondary{% endif %}">
+                                        {{ place.get_review_status_display }}
+                                    </span>
+                                </td>
                                 <td>
                                     <span class="badge {% if place.reliability >= 80 %}badge-success{% elif place.reliability >= 50 %}badge-warning{% else %}badge-danger{% endif %}">
                                         {{ place.reliability }}%
@@ -63,82 +77,80 @@
         </div>
 
         <div class="card">
-            <h3>最近的异名关系</h3>
-            {% if recent_relations %}
-                <table>
-                    <thead>
-                        <tr>
-                            <th>地名A</th>
-                            <th>关系</th>
-                            <th>地名B</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for rel in recent_relations %}
-                            <tr>
-                                <td>
-                                    <a href="{% url 'places:place_detail' rel.name_a.pk %}" style="color: #2980b9; text-decoration: none;">
-                                        {{ rel.name_a.name }}
-                                    </a>
-                                </td>
-                                <td>
-                                    <span class="badge badge-info">
-                                        {{ rel.get_relation_type_display }}
-                                    </span>
-                                </td>
-                                <td>
-                                    <a href="{% url 'places:place_detail' rel.name_b.pk %}" style="color: #2980b9; text-decoration: none;">
-                                        {{ rel.name_b.name }}
-                                    </a>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                <div style="margin-top: 1rem; text-align: right;">
-                    <a href="{% url 'places:relation_list' %}" class="btn btn-secondary">查看全部 →</a>
-                </div>
-            {% else %}
-                <div class="empty-state">
-                    <p>暂无异名关系数据</p>
-                </div>
-            {% endif %}
+            <h3>快速入口</h3>
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <a href="{% url 'places:place_create' %}" class="btn" style="text-align: center;">+ 新增古地名</a>
+                <a href="{% url 'places:review_list' %}" class="btn btn-warning" style="text-align: center;">待审核 ({{ pending_reviews }})</a>
+                <a href="{% url 'places:deletion_request_list' %}" class="btn btn-danger" style="text-align: center;">删除申请 ({{ pending_deletions }})</a>
+                <a href="{% url 'places:dispute_list' %}" class="btn btn-secondary" style="text-align: center;">争议处理</a>
+                <a href="{% url 'places:graph' %}" class="btn btn-success" style="text-align: center;">关系图谱</a>
+            </div>
         </div>
     </div>
 
     <div class="card">
-        <h3>系统功能</h3>
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1rem;">
-            <div style="padding: 1rem; background: #f8f9fa; border-radius: 6px; text-align: center;">
-                <div style="font-size: 2rem; margin-bottom: 0.5rem;">📜</div>
-                <div style="font-weight: 600; color: #2c3e50; margin-bottom: 0.3rem;">古地名档案</div>
-                <div style="font-size: 0.85rem; color: #7f8c8d;">管理各地地名的历史名称、年代与文献出处</div>
+        <h3>最近操作日志</h3>
+        {% if recent_logs %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>时间</th>
+                        <th>操作类型</th>
+                        <th>目标</th>
+                        <th>操作人</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in recent_logs %}
+                        <tr>
+                            <td style="font-size: 0.85rem; color: #7f8c8d;">
+                                {{ log.created_at|date:"m-d H:i" }}
+                            </td>
+                            <td>
+                                <span class="badge {% if log.action == 'create' %}badge-success{% elif log.action == 'delete' %}badge-danger{% elif log.action == 'approve' %}badge-success{% elif log.action == 'reject' %}badge-danger{% else %}badge-info{% endif %}">
+                                    {{ log.get_action_display }}
+                                </span>
+                            </td>
+                            <td>{{ log.target_name }}</td>
+                            <td>{{ log.operator|default:'系统' }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div style="margin-top: 1rem; text-align: right;">
+                <a href="{% url 'places:operation_log_list' %}" class="btn btn-secondary">查看全部日志 →</a>
             </div>
-            <div style="padding: 1rem; background: #f8f9fa; border-radius: 6px; text-align: center;">
-                <div style="font-size: 2rem; margin-bottom: 0.5rem;">🔗</div>
-                <div style="font-weight: 600; color: #2c3e50; margin-bottom: 0.3rem;">异名关联</div>
-                <div style="font-size: 0.85rem; color: #7f8c8d;">建立同一地点不同名称之间的关联关系</div>
+        {% else %}
+            <div class="empty-state">
+                <p>暂无操作日志</p>
             </div>
-            <div style="padding: 1rem; background: #f8f9fa; border-radius: 6px; text-align: center;">
-                <div style="font-size: 2rem; margin-bottom: 0.5rem;">🕸️</div>
-                <div style="font-weight: 600; color: #2c3e50; margin-bottom: 0.3rem;">关系图谱</div>
-                <div style="font-size: 0.85rem; color: #7f8c8d;">可视化展示地名之间的复杂异名网络</div>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h3>工作流程</h3>
+        <div class="workflow-steps" style="justify-content: center; margin-top: 1rem;">
+            <div class="workflow-step">
+                <span>📝</span> 录入草稿
             </div>
-            <div style="padding: 1rem; background: #f8f9fa; border-radius: 6px; text-align: center;">
-                <div style="font-size: 2rem; margin-bottom: 0.5rem;">📚</div>
-                <div style="font-weight: 600; color: #2c3e50; margin-bottom: 0.3rem;">文献出处</div>
-                <div style="font-size: 0.85rem; color: #7f8c8d;">管理古籍文献，确保每条地名有据可查</div>
+            <div class="workflow-step">
+                <span>�</span> 提交审核
             </div>
-            <div style="padding: 1rem; background: #f8f9fa; border-radius: 6px; text-align: center;">
-                <div style="font-size: 2rem; margin-bottom: 0.5rem;">🔍</div>
-                <div style="font-weight: 600; color: #2c3e50; margin-bottom: 0.3rem;">校勘意见</div>
-                <div style="font-size: 0.85rem; color: #7f8c8d;">记录研究人员的校勘结论与考证过程</div>
+            <div class="workflow-step">
+                <span>�</span> 校勘研究
             </div>
-            <div style="padding: 1rem; background: #f8f9fa; border-radius: 6px; text-align: center;">
-                <div style="font-size: 2rem; margin-bottom: 0.5rem;">⚖️</div>
-                <div style="font-weight: 600; color: #2c3e50; margin-bottom: 0.3rem;">争议记录</div>
-                <div style="font-size: 0.85rem; color: #7f8c8d;">追踪学术争议，记录解决方案与进展</div>
+            <div class="workflow-step">
+                <span>⚖️</span> 争议处理
+            </div>
+            <div class="workflow-step">
+                <span>✅</span> 审核通过
+            </div>
+            <div class="workflow-step">
+                <span>�</span> 归档保存
             </div>
         </div>
+        <p style="text-align: center; color: #7f8c8d; font-size: 0.9rem; margin-top: 1rem;">
+            研究人员可直接在前端完成"录入—校勘—争议—审核—归档"全流程
+        </p>
     </div>
 {% endblock %}

@@ -8,7 +8,7 @@
     </div>
 
     <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
             <div>
                 <h2 style="color: #2c3e50; margin-bottom: 0.5rem;">{{ place.name }}</h2>
                 {% if place.alternative_name %}
@@ -16,21 +16,51 @@
                 {% endif %}
             </div>
             <div style="text-align: right;">
-                <div style="margin-bottom: 0.5rem;">
+                <div style="margin-bottom: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end;">
+                    <span class="badge {% if place.review_status == 'approved' or place.review_status == 'archived' %}badge-success{% elif place.review_status == 'rejected' %}badge-danger{% elif place.review_status == 'submitted' or place.review_status == 'reviewing' %}badge-warning{% else %}badge-secondary{% endif %}" style="font-size: 0.9rem; padding: 0.4rem 0.8rem;">
+                        {{ place.get_review_status_display }}
+                    </span>
                     <span class="badge {% if place.collation_status == 'completed' %}badge-success{% elif place.collation_status == 'in_progress' %}badge-warning{% else %}badge-secondary{% endif %}" style="font-size: 0.9rem; padding: 0.4rem 0.8rem;">
                         {{ place.get_collation_status_display }}
                     </span>
                     {% if place.has_unresolved_disputes %}
-                        <span class="badge badge-danger" style="margin-left: 4px;">有未解决争议</span>
+                        <span class="badge badge-danger" style="font-size: 0.9rem; padding: 0.4rem 0.8rem;">有未解决争议</span>
                     {% endif %}
                 </div>
-                {% if place.can_delete %}
-                    <a href="{% url 'places:place_delete' place.pk %}" class="btn btn-danger" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">删除地名</a>
-                {% else %}
-                    <span class="badge badge-secondary" style="font-size: 0.8rem;" title="存在关联数据，无法删除">
-                        受保护（存在关联数据）
-                    </span>
-                {% endif %}
+                <div class="action-bar" style="justify-content: flex-end;">
+                    {% if place.review_status == 'draft' or place.review_status == 'rejected' %}
+                        <a href="{% url 'places:place_edit' place.pk %}" class="btn">编辑</a>
+                        <a href="{% url 'places:place_submit' place.pk %}" class="btn btn-warning">提交审核</a>
+                    {% endif %}
+                    {% if place.review_status == 'approved' and place.collation_status == 'completed' and not place.has_unresolved_disputes %}
+                        <a href="{% url 'places:place_archive' place.pk %}" class="btn btn-success">归档</a>
+                    {% endif %}
+                    <a href="{% url 'places:deletion_request_create' place.pk %}" class="btn btn-danger">申请删除</a>
+                    {% if place.can_delete %}
+                        <a href="{% url 'places:place_delete' place.pk %}" class="btn btn-danger" style="opacity: 0.7;">直接删除</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="workflow-steps" style="margin-top: 1.5rem;">
+            <div class="workflow-step {% if place.review_status == 'draft' %}active{% elif place.review_status != 'draft' %}done{% endif %}">
+                <span>📝</span> 草稿
+            </div>
+            <div class="workflow-step {% if place.review_status == 'submitted' or place.review_status == 'reviewing' %}active{% elif place.review_status == 'approved' or place.review_status == 'archived' %}done{% endif %}">
+                <span>📤</span> 提交审核
+            </div>
+            <div class="workflow-step {% if place.review_status == 'approved' and place.collation_status != 'completed' %}active{% elif place.collation_status == 'completed' %}done{% endif %}">
+                <span>🔍</span> 校勘中
+            </div>
+            <div class="workflow-step {% if place.has_unresolved_disputes %}active{% endif %}">
+                <span>⚖️</span> 争议处理
+            </div>
+            <div class="workflow-step {% if place.collation_status == 'completed' %}done{% endif %}">
+                <span>✅</span> 校勘完成
+            </div>
+            <div class="workflow-step {% if place.review_status == 'archived' %}done{% endif %}">
+                <span>📦</span> 归档
             </div>
         </div>
 
@@ -51,11 +81,11 @@
             </div>
             <div class="detail-item">
                 <div class="label">始见年代</div>
-                <div class="value">{{ place.start_year|default:'-' }}</div>
+                <div class="value">{{ place.start_year|default:'-' }}{% if place.start_year_num %}（{{ place.start_year_num }}年）{% endif %}</div>
             </div>
             <div class="detail-item">
                 <div class="label">废止年代</div>
-                <div class="value">{{ place.end_year|default:'-' }}</div>
+                <div class="value">{{ place.end_year|default:'-' }}{% if place.end_year_num %}（{{ place.end_year_num }}年）{% endif %}</div>
             </div>
             {% if place.longitude and place.latitude %}
                 <div class="detail-item">
@@ -64,10 +94,32 @@
                 </div>
             {% endif %}
             <div class="detail-item">
+                <div class="label">提交人</div>
+                <div class="value">{{ place.submitter|default:'-' }}</div>
+            </div>
+            <div class="detail-item">
+                <div class="label">提交时间</div>
+                <div class="value">{{ place.submitted_at|date:"Y-m-d H:i"|default:'-' }}</div>
+            </div>
+            <div class="detail-item">
+                <div class="label">审核人</div>
+                <div class="value">{{ place.reviewer|default:'-' }}</div>
+            </div>
+            <div class="detail-item">
                 <div class="label">更新时间</div>
                 <div class="value">{{ place.updated_at|date:"Y-m-d H:i" }}</div>
             </div>
         </div>
+
+        {% if place.review_comment %}
+            <div class="section-divider"></div>
+            <div class="detail-item">
+                <div class="label">审核意见</div>
+                <div class="value" style="background: #f8f9fa; padding: 0.75rem; border-radius: 4px; margin-top: 0.5rem;">
+                    {{ place.review_comment }}
+                </div>
+            </div>
+        {% endif %}
 
         {% if place.description %}
             <div class="section-divider"></div>
@@ -78,8 +130,20 @@
         {% endif %}
     </div>
 
-    <div class="card">
-        <h3>文献出处</h3>
+    <div class="tabs">
+        <a href="#literatures" class="tab active" onclick="switchTab(event, 'literatures')">文献出处</a>
+        <a href="#relations" class="tab" onclick="switchTab(event, 'relations')">异名关系</a>
+        <a href="#collations" class="tab" onclick="switchTab(event, 'collations')">校勘意见</a>
+        <a href="#disputes" class="tab" onclick="switchTab(event, 'disputes')">争议记录</a>
+        <a href="#versions" class="tab" onclick="switchTab(event, 'versions')">版本历史</a>
+        <a href="#annotations" class="tab" onclick="switchTab(event, 'annotations')">协作批注</a>
+        <a href="#review-log" class="tab" onclick="switchTab(event, 'review-log')">审核记录</a>
+    </div>
+
+    <div id="tab-literatures" class="tab-content card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="margin: 0;">文献出处（{{ literature_relations|length }} 条）</h3>
+        </div>
         {% if literature_relations %}
             <table>
                 <thead>
@@ -92,7 +156,11 @@
                 <tbody>
                     {% for lit_rel in literature_relations %}
                         <tr>
-                            <td>{{ lit_rel.literature.title }}</td>
+                            <td>
+                                <a href="{% url 'places:literature_detail' lit_rel.literature.pk %}" style="color: #2980b9; text-decoration: none;">
+                                    {{ lit_rel.literature.title }}
+                                </a>
+                            </td>
                             <td>
                                 {% if lit_rel.literature.author %}{{ lit_rel.literature.author }}{% endif %}
                                 {% if lit_rel.literature.dynasty %}（{{ lit_rel.literature.dynasty }}）{% endif %}
@@ -109,15 +177,15 @@
         {% endif %}
     </div>
 
-    <div class="card">
+    <div id="tab-relations" class="tab-content card" style="display: none;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <h3 style="margin: 0;">异名关系（{{ related_places|length }} 条）</h3>
             <a href="{% url 'places:relation_create' %}?name_a={{ place.pk }}" class="btn btn-success" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">+ 新增关系</a>
         </div>
         {% if related_places %}
             {% for item in related_places %}
-                <div class="relation-item {% if item.relation.confirmed %}confirmed{% endif %}">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="relation-item {% if item.relation.status == 'confirmed' %}confirmed{% endif %}">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
                         <div>
                             <a href="{% url 'places:place_detail' item.place.pk %}" style="color: #2980b9; text-decoration: none; font-weight: 500; font-size: 1.05rem;">
                                 {{ item.place.name }}
@@ -126,13 +194,11 @@
                                 <span style="color: #7f8c8d; font-size: 0.9rem; margin-left: 0.5rem;">（{{ item.place.alternative_name }}）</span>
                             {% endif %}
                         </div>
-                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
                             <span class="badge badge-info">{{ item.relation.get_relation_type_display }}</span>
-                            {% if item.relation.confirmed %}
-                                <span class="badge badge-success">已确认</span>
-                            {% else %}
-                                <span class="badge badge-secondary">待确认</span>
-                            {% endif %}
+                            <span class="badge {% if item.relation.status == 'confirmed' %}badge-success{% elif item.relation.status == 'disputed' %}badge-danger{% elif item.relation.status == 'rejected' %}badge-secondary{% else %}badge-warning{% endif %}">
+                                {{ item.relation.get_status_display }}
+                            </span>
                             <span class="badge {% if item.relation.reliability >= 80 %}badge-success{% elif item.relation.reliability >= 50 %}badge-warning{% else %}badge-danger{% endif %}">
                                 可信度 {{ item.relation.reliability }}%
                             </span>
@@ -151,7 +217,7 @@
         {% endif %}
     </div>
 
-    <div class="card">
+    <div id="tab-collations" class="tab-content card" style="display: none;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <h3 style="margin: 0;">校勘意见</h3>
             <a href="{% url 'places:collation_create' %}?place_id={{ place.pk }}" class="btn btn-success" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">+ 新增校勘意见</a>
@@ -184,21 +250,27 @@
         {% endif %}
     </div>
 
-    <div class="card">
+    <div id="tab-disputes" class="tab-content card" style="display: none;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <h3 style="margin: 0;">争议记录</h3>
             <a href="{% url 'places:dispute_create' %}?place_id={{ place.pk }}" class="btn btn-success" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">+ 新增争议</a>
         </div>
         {% if disputes %}
             {% for dispute in disputes %}
-                <div style="padding: 1rem; background: {% if dispute.status == 'open' %}#fff5f5{% else %}#f0fff4{% endif %}; border-radius: 6px; margin-bottom: 1rem; border-left: 4px solid {% if dispute.status == 'open' %}#e74c3c{% else %}#27ae60{% endif %};">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <strong style="color: #2c3e50;">{{ dispute.title }}</strong>
+                <div style="padding: 1rem; background: {% if dispute.status == 'open' or dispute.status == 'investigating' %}#fff5f5{% else %}#f0fff4{% endif %}; border-radius: 6px; margin-bottom: 1rem; border-left: 4px solid {% if dispute.status == 'open' or dispute.status == 'investigating' %}#e74c3c{% else %}#27ae60{% endif %};">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+                        <strong style="color: #2c3e50;">
+                            <a href="{% url 'places:dispute_detail' dispute.pk %}" style="color: #2c3e50; text-decoration: none;">
+                                {{ dispute.title }}
+                            </a>
+                        </strong>
                         <div style="display: flex; gap: 0.5rem; align-items: center;">
-                            <span class="badge {% if dispute.status == 'open' %}badge-danger{% else %}badge-success{% endif %}">
+                            <span class="badge {% if dispute.status == 'open' or dispute.status == 'investigating' %}badge-danger{% else %}badge-success{% endif %}">
                                 {{ dispute.get_status_display }}
                             </span>
-                            <a href="{% url 'places:dispute_delete' dispute.pk %}" class="btn btn-danger" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">删除</a>
+                            {% if dispute.reopen_count > 0 %}
+                                <span class="badge badge-info">重启 {{ dispute.reopen_count }} 次</span>
+                            {% endif %}
                         </div>
                     </div>
                     <p style="color: #555; margin-bottom: 0.5rem;">{{ dispute.content }}</p>
@@ -210,12 +282,23 @@
                     </div>
                     {% if dispute.resolution %}
                         <div style="margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px dashed #ddd;">
-                            <strong style="color: {% if dispute.status == 'open' %}#f39c12{% else %}#27ae60{% endif %};">
+                            {% if dispute.resolution_type %}
+                                <span class="badge badge-info">{{ dispute.get_resolution_type_display }}</span>
+                            {% endif %}
+                            <strong style="color: {% if dispute.status == 'open' or dispute.status == 'investigating' %}#f39c12{% else %}#27ae60{% endif %};">
                                 解决方案：
                             </strong>
                             <span style="color: #555;">{{ dispute.resolution }}</span>
                         </div>
                     {% endif %}
+                    <div style="margin-top: 0.8rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        {% if dispute.status == 'open' or dispute.status == 'investigating' %}
+                            <a href="{% url 'places:dispute_resolve' dispute.pk %}" class="btn btn-success" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">解决</a>
+                            <a href="{% url 'places:dispute_reject' dispute.pk %}" class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">驳回</a>
+                        {% else %}
+                            <a href="{% url 'places:dispute_reopen' dispute.pk %}" class="btn btn-warning" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">重新开启</a>
+                        {% endif %}
+                    </div>
                 </div>
             {% endfor %}
         {% else %}
@@ -225,16 +308,170 @@
         {% endif %}
     </div>
 
+    <div id="tab-versions" class="tab-content card" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="margin: 0;">版本历史</h3>
+            <a href="{% url 'places:version_history' place.pk %}" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">查看全部</a>
+        </div>
+        {% if versions %}
+            <div class="timeline">
+                {% for version in versions %}
+                    <div class="timeline-item">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <strong>v{{ version.version_number }}</strong>
+                            <span style="color: #7f8c8d; font-size: 0.85rem;">{{ version.created_at|date:"Y-m-d H:i" }}</span>
+                        </div>
+                        <div style="margin-top: 0.5rem; font-size: 0.9rem; color: #555;">
+                            变更字段：
+                            {% for field in version.change_fields %}
+                                <span class="badge badge-info" style="margin-right: 0.3rem;">{{ field }}</span>
+                            {% endfor %}
+                        </div>
+                        {% with changes=version.get_changes_dict %}
+                            {% if changes %}
+                                <div style="margin-top: 0.5rem; background: #f8f9fa; padding: 0.75rem; border-radius: 4px;">
+                                    {% for field, change in changes.items %}
+                                        <div class="version-change" style="margin-bottom: 0.5rem;">
+                                            <strong style="font-size: 0.85rem; color: #7f8c8d;">{{ field }}：</strong>
+                                            <span class="old">{{ change.old|default:'(空)' }}</span>
+                                            →
+                                            <span class="new">{{ change.new|default:'(空)' }}</span>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        {% endwith %}
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <p>暂无版本记录</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <div id="tab-annotations" class="tab-content card" style="display: none;">
+        <div style="margin-bottom: 1rem;">
+            <h3 style="margin: 0 0 1rem 0;">协作批注</h3>
+            <form method="post" action="{% url 'places:annotation_create' 'place' place.pk %}">
+                {% csrf_token %}
+                <div class="form-group">
+                    <textarea name="content" class="form-textarea" rows="3" placeholder="添加批注..."></textarea>
+                </div>
+                <div style="display: flex; gap: 0.5rem; align-items: center; justify-content: space-between;">
+                    <input type="text" name="author" class="form-input" style="width: 200px;" placeholder="您的名字">
+                    <button type="submit" class="btn btn-success">提交批注</button>
+                </div>
+            </form>
+        </div>
+
+        {% if annotations %}
+            {% for annotation in annotations %}
+                <div class="annotation-item {% if annotation.is_resolved %}resolved{% endif %}">
+                    <div class="annotation-header">
+                        <span><strong>{{ annotation.author|default:'匿名' }}</strong> · {{ annotation.created_at|date:"Y-m-d H:i" }}</span>
+                        {% if annotation.is_resolved %}
+                            <span class="badge badge-success">已解决</span>
+                        {% else %}
+                            <form method="post" action="{% url 'places:annotation_resolve' annotation.pk %}" style="display: inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-success" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">标记解决</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                    <p style="margin: 0; color: #333; white-space: pre-wrap;">{{ annotation.content }}</p>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <p>暂无批注，快来添加第一条吧！</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <div id="tab-review-log" class="tab-content card" style="display: none;">
+        <h3 style="margin-bottom: 1rem;">审核记录</h3>
+        {% if review_records %}
+            <div class="timeline">
+                {% for record in review_records %}
+                    <div class="timeline-item">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span class="badge {% if record.action == 'approve' or record.action == 'archive' %}badge-success{% elif record.action == 'reject' %}badge-danger{% else %}badge-info{% endif %}">
+                                {{ record.get_action_display }}
+                            </span>
+                            <span style="color: #7f8c8d; font-size: 0.85rem;">{{ record.created_at|date:"Y-m-d H:i" }}</span>
+                        </div>
+                        {% if record.operator %}
+                            <div style="margin-top: 0.3rem; font-size: 0.9rem;">操作人：{{ record.operator }}</div>
+                        {% endif %}
+                        {% if record.comment %}
+                            <div style="margin-top: 0.5rem; background: #f8f9fa; padding: 0.75rem; border-radius: 4px; font-size: 0.9rem;">
+                                {{ record.comment }}
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <p>暂无审核记录</p>
+            </div>
+        {% endif %}
+
+        {% if deletion_requests %}
+            <h3 style="margin-top: 2rem; margin-bottom: 1rem;">删除申请记录</h3>
+            {% for req in deletion_requests %}
+                <div style="padding: 1rem; background: #fff5f5; border-radius: 6px; margin-bottom: 0.75rem; border-left: 3px solid #e74c3c;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span class="badge {% if req.status == 'approved' or req.status == 'completed' %}badge-success{% elif req.status == 'rejected' or req.status == 'cancelled' %}badge-secondary{% else %}badge-warning{% endif %}">
+                            {{ req.get_status_display }}
+                        </span>
+                        <span style="color: #7f8c8d; font-size: 0.85rem;">{{ req.created_at|date:"Y-m-d" }}</span>
+                    </div>
+                    <p style="margin: 0.5rem 0; font-size: 0.9rem;"><strong>申请人：</strong>{{ req.applicant|default:'匿名' }}</p>
+                    <p style="margin: 0; font-size: 0.9rem; color: #555;">{{ req.reason }}</p>
+                    {% if req.review_comment %}
+                        <div style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed #ddd;">
+                            <strong style="font-size: 0.85rem; color: #7f8c8d;">审核意见：</strong>
+                            <span style="font-size: 0.85rem;">{{ req.review_comment }}</span>
+                        </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+
     <div class="card" style="background: #f8f9fa;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
             <span style="color: #7f8c8d; font-size: 0.9rem;">
                 创建时间：{{ place.created_at|date:"Y-m-d H:i" }}
             </span>
             {% if not can_delete %}
                 <span style="color: #e74c3c; font-size: 0.85rem;">
-                    ⚠ 该地名存在关联关系，无法直接删除
+                    ⚠ 该地名存在关联数据，需通过删除申请流程处理
                 </span>
             {% endif %}
         </div>
     </div>
+{% endblock %}
+
+{% block extra_js %}
+    <script>
+        function switchTab(event, tabName) {
+            event.preventDefault();
+            var tabs = document.querySelectorAll('.tab');
+            var tabContents = document.querySelectorAll('.tab-content');
+
+            tabs.forEach(function(tab) {
+                tab.classList.remove('active');
+            });
+            tabContents.forEach(function(content) {
+                content.style.display = 'none';
+            });
+
+            event.target.classList.add('active');
+            document.getElementById('tab-' + tabName).style.display = 'block';
+        }
+    </script>
 {% endblock %}

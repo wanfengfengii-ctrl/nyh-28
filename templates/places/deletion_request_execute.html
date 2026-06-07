@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block title %}执行删除{% endblock %}
+
+{% block content %}
+    <div style="margin-bottom: 1rem;">
+        <a href="{% url 'places:deletion_request_detail' deletion_request.pk %}" style="color: #3498db; text-decoration: none;">← 返回详情</a>
+    </div>
+
+    <div class="card">
+        <h2 style="margin-bottom: 1rem; color: #e74c3c;">⚠ 确认执行删除</h2>
+
+        <div class="alert alert-danger">
+            <strong>危险操作：</strong>删除操作不可逆，执行后该地名及其关联数据将被永久删除！
+        </div>
+
+        <div style="padding: 1rem; background: #fff5f5; border-radius: 6px; margin-bottom: 1.5rem; border-left: 4px solid #e74c3c;">
+            <h4 style="margin-top: 0;">{{ deletion_request.place_name.name }}</h4>
+            {% if deletion_request.place_name.alternative_name %}
+                <p style="color: #7f8c8d; margin-bottom: 0.5rem;">别名：{{ deletion_request.place_name.alternative_name }}</p>
+            {% endif %}
+            <p style="margin-bottom: 0.5rem;"><strong>删除理由：</strong></p>
+            <p style="background: white; padding: 0.75rem; border-radius: 4px; margin: 0;">{{ deletion_request.reason }}</p>
+        </div>
+
+        <div style="margin-bottom: 1.5rem;">
+            <h4>将删除以下关联数据：</h4>
+            <ul>
+                <li>文献引用关系：{{ related_literatures }} 条</li>
+                <li>异名关系：{{ related_relations }} 条</li>
+                <li>校勘意见：{{ related_collations }} 条</li>
+                <li>争议记录：{{ related_disputes }} 条</li>
+                <li>版本历史：全部版本记录</li>
+            </ul>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="action-bar">
+                <a href="{% url 'places:deletion_request_detail' deletion_request.pk %}" class="btn btn-secondary">取消</a>
+                <button type="submit" class="btn btn-danger">确认删除</button>
+            </div>
+        </form>
+    </div>
+{% endblock %}

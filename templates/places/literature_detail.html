@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ literature.title }} - 文献详情{% endblock %}
+
+{% block content %}
+    <div style="margin-bottom: 1rem;">
+        <a href="{% url 'places:literature_list' %}" style="color: #3498db; text-decoration: none;">← 返回文献列表</a>
+    </div>
+
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+            <div>
+                <h2 style="color: #2c3e50; margin-bottom: 0.5rem;">{{ literature.title }}</h2>
+                <p style="color: #7f8c8d;">
+                    {% if literature.author %}{{ literature.author }}{% endif %}
+                    {% if literature.dynasty %} · {{ literature.dynasty }}{% endif %}
+                    {% if literature.year %} · {{ literature.year }}{% endif %}
+                </p>
+            </div>
+            <div class="action-bar" style="justify-content: flex-end;">
+                <a href="{% url 'places:literature_delete' literature.pk %}" class="btn btn-danger">删除</a>
+            </div>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <div class="detail-grid">
+            {% if literature.publisher %}
+                <div class="detail-item">
+                    <div class="label">出版信息</div>
+                    <div class="value">{{ literature.publisher }}</div>
+                </div>
+            {% endif %}
+            {% if literature.category %}
+                <div class="detail-item">
+                    <div class="label">文献类别</div>
+                    <div class="value">{{ literature.category }}</div>
+                </div>
+            {% endif %}
+            {% if literature.source_url %}
+                <div class="detail-item">
+                    <div class="label">来源链接</div>
+                    <div class="value">
+                        <a href="{{ literature.source_url }}" target="_blank" style="color: #2980b9;">{{ literature.source_url }}</a>
+                    </div>
+                </div>
+            {% endif %}
+            <div class="detail-item">
+                <div class="label">引用地名数</div>
+                <div class="value">{{ cited_places|length }} 个</div>
+            </div>
+        </div>
+
+        {% if literature.description %}
+            <div class="section-divider"></div>
+            <div class="detail-item">
+                <div class="label">文献简介</div>
+                <div class="value" style="white-space: pre-wrap; margin-top: 0.5rem;">{{ literature.description }}</div>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="tabs">
+        <a href="#cited-places" class="tab active" onclick="switchTab(event, 'cited-places')">引用地名</a>
+        <a href="#citation-chain" class="tab" onclick="switchTab(event, 'citation-chain')">引用链</a>
+    </div>
+
+    <div id="tab-cited-places" class="tab-content card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="margin: 0;">引用的地名（{{ cited_places|length }} 个）</h3>
+        </div>
+
+        {% if cited_places %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>地名</th>
+                        <th>地区</th>
+                        <th>可信度</th>
+                        <th>引用细节</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in cited_places %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'places:place_detail' item.place_name.pk %}" style="color: #2980b9; text-decoration: none;">
+                                    {{ item.place_name.name }}
+                                </a>
+                                {% if item.place_name.alternative_name %}
+                                    <span style="color: #7f8c8d; font-size: 0.85rem;">（{{ item.place_name.alternative_name }}）</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ item.place_name.region|default:'-' }}</td>
+                            <td>
+                                <span class="badge {% if item.place_name.reliability >= 80 %}badge-success{% elif item.place_name.reliability >= 50 %}badge-warning{% else %}badge-danger{% endif %}">
+                                    {{ item.place_name.reliability }}%
+                                </span>
+                            </td>
+                            <td>{{ item.citation_detail|default:'-' }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="empty-state">
+                <p>该文献暂无引用的地名</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <div id="tab-citation-chain" class="tab-content card" style="display: none;">
+        <h3 style="margin-bottom: 1rem;">引用链追踪</h3>
+
+        <p style="color: #666; margin-bottom: 1rem;">
+            展示该文献引用的地名，以及这些地名还在哪些其他文献中出现，形成文献-地名-文献的引用网络。
+        </p>
+
+        {% if citation_chain %}
+            <div class="citation-chain">
+                {% for place_item in citation_chain %}
+                    <div style="margin-bottom: 1.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+                            <span style="font-size: 1.2rem;">📍</span>
+                            <strong style="font-size: 1.1rem;">
+                                <a href="{% url 'places:place_detail' place_item.place.pk %}" style="color: #2c3e50; text-decoration: none;">
+                                    {{ place_item.place.name }}
+                                </a>
+                            </strong>
+                            <span class="badge badge-info">地名</span>
+                        </div>
+
+                        <div style="margin-left: 2rem; padding-left: 1rem; border-left: 2px solid #3498db;">
+                            {% if place_item.other_literatures %}
+                                <p style="color: #7f8c8d; font-size: 0.9rem; margin-bottom: 0.5rem;">
+                                    该地名还在以下文献中出现（{{ place_item.other_literatures|length }} 个）：
+                                </p>
+                                <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                                    {% for lit in place_item.other_literatures %}
+                                        <a href="{% url 'places:literature_detail' lit.pk %}"
+                                           class="badge badge-secondary"
+                                           style="text-decoration: none; padding: 0.4rem 0.8rem;">
+                                            📚 {{ lit.title }}
+                                        </a>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p style="color: #bdc3c7; font-size: 0.85rem;">仅在本文献中出现</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            {% if deeper_chain %}
+                <div style="margin-top: 2rem; padding: 1rem; background: #f8f9fa; border-radius: 6px;">
+                    <h4 style="margin-top: 0; color: #2c3e50;">更深度的引用链（最多3层）</h4>
+                    <p style="color: #7f8c8d; font-size: 0.9rem;">
+                        展示"本文献 → 地名 → 其他文献 → 更多地名"的引用路径
+                    </p>
+                    <div style="font-size: 0.9rem;">
+                        {% for item in deeper_chain %}
+                            <div style="padding: 0.5rem 0; border-bottom: 1px dashed #ddd;">
+                                <span style="color: #e74c3c;">📚 {{ item.level0_title }}</span>
+                                <span style="color: #95a5a6;"> → </span>
+                                <span style="color: #27ae60;">📍 {{ item.level1_place }}</span>
+                                <span style="color: #95a5a6;"> → </span>
+                                <span style="color: #f39c12;">📚 {{ item.level1_literature }}</span>
+                                {% if item.level2_places %}
+                                    <span style="color: #95a5a6;"> → </span>
+                                    <span style="color: #3498db;">📍 {{ item.level2_places|join:"、" }}</span>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <p>暂无引用链数据</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="card" style="background: #f8f9fa;">
+        <span style="color: #7f8c8d; font-size: 0.9rem;">
+            创建时间：{{ literature.created_at|date:"Y-m-d H:i" }} ·
+            更新时间：{{ literature.updated_at|date:"Y-m-d H:i" }}
+        </span>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+    <script>
+        function switchTab(event, tabName) {
+            event.preventDefault();
+            var tabs = document.querySelectorAll('.tab');
+            var tabContents = document.querySelectorAll('.tab-content');
+
+            tabs.forEach(function(tab) {
+                tab.classList.remove('active');
+            });
+            tabContents.forEach(function(content) {
+                content.style.display = 'none';
+            });
+
+            event.target.classList.add('active');
+            document.getElementById('tab-' + tabName).style.display = 'block';
+        }
+    </script>
+{% endblock %}

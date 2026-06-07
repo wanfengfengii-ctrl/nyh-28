@@ -147,21 +147,25 @@
                 <label>年代关键词</label>
                 <input type="text" id="filter-year-keyword" placeholder="如：唐代、明朝">
             </div>
-            <div class="filter-group">
-                <label>始见年代</label>
-                <input type="text" id="filter-start-year" placeholder="如：唐初">
+            <div style="display: flex; gap: 0.5rem; align-items: flex-end;">
+                <div class="filter-group">
+                    <label>始见年份（数值）</label>
+                    <input type="number" id="filter-start-year-num" placeholder="如：618">
+                </div>
+                <div class="filter-group">
+                    <label>至</label>
+                    <input type="number" id="filter-end-year-num" placeholder="如：907">
+                </div>
             </div>
-            <div class="filter-group">
-                <label>废止年代</label>
-                <input type="text" id="filter-end-year" placeholder="如：清末">
-            </div>
-            <div class="filter-group">
-                <label>最低可信度</label>
-                <input type="number" id="filter-min-reliability" min="0" max="100" value="0" placeholder="0-100">
-            </div>
-            <div class="filter-group">
-                <label>最高可信度</label>
-                <input type="number" id="filter-max-reliability" min="0" max="100" value="100" placeholder="0-100">
+            <div style="display: flex; gap: 0.5rem; align-items: flex-end;">
+                <div class="filter-group">
+                    <label>最低可信度</label>
+                    <input type="number" id="filter-min-reliability" min="0" max="100" value="0" placeholder="0-100">
+                </div>
+                <div class="filter-group">
+                    <label>最高可信度</label>
+                    <input type="number" id="filter-max-reliability" min="0" max="100" value="100" placeholder="0-100">
+                </div>
             </div>
             <div class="filter-group">
                 <label>关系类型</label>
@@ -173,12 +177,25 @@
                 </select>
             </div>
             <div class="filter-group">
-                <label>校勘状态</label>
-                <select id="filter-collation-status">
+                <label>关系状态</label>
+                <select id="filter-relation-status">
                     <option value="">全部状态</option>
-                    <option value="pending">待校勘</option>
-                    <option value="in_progress">校勘中</option>
-                    <option value="completed">已完成</option>
+                    <option value="pending">待确认</option>
+                    <option value="confirmed">已确认</option>
+                    <option value="disputed">有争议</option>
+                    <option value="rejected">已驳回</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>审核状态</label>
+                <select id="filter-review-status">
+                    <option value="">全部状态</option>
+                    <option value="draft">草稿</option>
+                    <option value="submitted">待审核</option>
+                    <option value="reviewing">审核中</option>
+                    <option value="approved">已通过</option>
+                    <option value="rejected">已驳回</option>
+                    <option value="archived">已归档</option>
                 </select>
             </div>
             <div class="filter-group">
@@ -203,7 +220,19 @@
             </div>
             <div class="legend-item">
                 <div class="legend-color" style="background: #27ae60;"></div>
-                <span>异名关系边</span>
+                <span>已确认关系</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #f39c12;"></div>
+                <span>待确认关系</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #e74c3c;"></div>
+                <span>有争议关系</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #95a5a6;"></div>
+                <span>已驳回关系</span>
             </div>
             <div class="legend-item">
                 <div class="legend-color" style="background: #f39c12; width: 10px; height: 10px;"></div>
@@ -287,25 +316,54 @@
                         }
                     },
                     {
-                        selector: 'edge[reliability >= 80]',
+                        selector: 'edge[status = "confirmed"]',
                         style: {
                             'line-color': '#27ae60',
                             'width': 3
                         }
                     },
                     {
-                        selector: 'edge[reliability >= 50][reliability < 80]',
+                        selector: 'edge[status = "pending"]',
                         style: {
                             'line-color': '#f39c12',
+                            'width': 2,
+                            'line-style': 'solid'
+                        }
+                    },
+                    {
+                        selector: 'edge[status = "disputed"]',
+                        style: {
+                            'line-color': '#e74c3c',
+                            'width': 2,
+                            'line-style': 'dashed'
+                        }
+                    },
+                    {
+                        selector: 'edge[status = "rejected"]',
+                        style: {
+                            'line-color': '#95a5a6',
+                            'width': 1,
+                            'line-style': 'dotted',
+                            'opacity': 0.5
+                        }
+                    },
+                    {
+                        selector: 'edge[reliability >= 80]',
+                        style: {
+                            'width': 3
+                        }
+                    },
+                    {
+                        selector: 'edge[reliability >= 50][reliability < 80]',
+                        style: {
                             'width': 2
                         }
                     },
                     {
                         selector: 'edge[reliability < 50]',
                         style: {
-                            'line-color': '#e74c3c',
                             'width': 1,
-                            'line-style': 'dashed'
+                            'opacity': 0.7
                         }
                     }
                 ],
@@ -332,22 +390,24 @@
         function loadGraphData() {
             var region = document.getElementById('filter-region').value;
             var yearKeyword = document.getElementById('filter-year-keyword').value;
-            var startYear = document.getElementById('filter-start-year').value;
-            var endYear = document.getElementById('filter-end-year').value;
+            var startYearNum = document.getElementById('filter-start-year-num').value;
+            var endYearNum = document.getElementById('filter-end-year-num').value;
             var minReliability = document.getElementById('filter-min-reliability').value;
             var maxReliability = document.getElementById('filter-max-reliability').value;
             var relationType = document.getElementById('filter-relation-type').value;
-            var collationStatus = document.getElementById('filter-collation-status').value;
+            var relationStatus = document.getElementById('filter-relation-status').value;
+            var reviewStatus = document.getElementById('filter-review-status').value;
 
             var params = new URLSearchParams();
             if (region) params.append('region', region);
             if (yearKeyword) params.append('year', yearKeyword);
-            if (startYear) params.append('start_year', startYear);
-            if (endYear) params.append('end_year', endYear);
+            if (startYearNum) params.append('start_year_num', startYearNum);
+            if (endYearNum) params.append('end_year_num', endYearNum);
             if (minReliability && minReliability != 0) params.append('min_reliability', minReliability);
             if (maxReliability && maxReliability != 100) params.append('max_reliability', maxReliability);
             if (relationType) params.append('type', relationType);
-            if (collationStatus) params.append('collation_status', collationStatus);
+            if (relationStatus) params.append('relation_status', relationStatus);
+            if (reviewStatus) params.append('review_status', reviewStatus);
 
             var url = '{% url "places:graph_data" %}?' + params.toString();
 
@@ -430,12 +490,13 @@
         function resetFilters() {
             document.getElementById('filter-region').value = '';
             document.getElementById('filter-year-keyword').value = '';
-            document.getElementById('filter-start-year').value = '';
-            document.getElementById('filter-end-year').value = '';
+            document.getElementById('filter-start-year-num').value = '';
+            document.getElementById('filter-end-year-num').value = '';
             document.getElementById('filter-min-reliability').value = '0';
             document.getElementById('filter-max-reliability').value = '100';
             document.getElementById('filter-relation-type').value = '';
-            document.getElementById('filter-collation-status').value = '';
+            document.getElementById('filter-relation-status').value = '';
+            document.getElementById('filter-review-status').value = '';
             loadGraphData();
         }
 

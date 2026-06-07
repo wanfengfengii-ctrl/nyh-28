@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ dispute.title }} - 争议详情{% endblock %}
+
+{% block content %}
+    <div style="margin-bottom: 1rem;">
+        <a href="{% url 'places:dispute_list' %}" style="color: #3498db; text-decoration: none;">← 返回争议列表</a>
+    </div>
+
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+            <h2 style="margin: 0;">{{ dispute.title }}</h2>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <span class="badge {% if dispute.status == 'open' or dispute.status == 'investigating' %}badge-danger{% else %}badge-success{% endif %}" style="font-size: 1rem; padding: 0.5rem 1rem;">
+                    {{ dispute.get_status_display }}
+                </span>
+                {% if dispute.reopen_count > 0 %}
+                    <span class="badge badge-info">重启 {{ dispute.reopen_count }} 次</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="detail-grid" style="margin-top: 1rem;">
+            <div class="detail-item">
+                <div class="label">关联地名</div>
+                <div class="value">
+                    <a href="{% url 'places:place_detail' dispute.place_name.pk %}" style="color: #2980b9; text-decoration: none;">
+                        {{ dispute.place_name.name }}
+                    </a>
+                </div>
+            </div>
+            <div class="detail-item">
+                <div class="label">提出者</div>
+                <div class="value">{{ dispute.proposer|default:'匿名' }}</div>
+            </div>
+            <div class="detail-item">
+                <div class="label">提出时间</div>
+                <div class="value">{{ dispute.created_at|date:"Y-m-d H:i" }}</div>
+            </div>
+            {% if dispute.resolved_date %}
+                <div class="detail-item">
+                    <div class="label">解决时间</div>
+                    <div class="value">{{ dispute.resolved_date|date:"Y-m-d" }}</div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <h3 style="margin-bottom: 1rem;">争议内容</h3>
+        <div style="padding: 1rem; background: #f8f9fa; border-radius: 6px; white-space: pre-wrap;">
+            {{ dispute.content }}
+        </div>
+    </div>
+
+    {% if dispute.resolution %}
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h3 style="margin: 0;">解决方案</h3>
+                {% if dispute.resolution_type %}
+                    <span class="badge badge-info">{{ dispute.get_resolution_type_display }}</span>
+                {% endif %}
+            </div>
+            <div style="padding: 1rem; background: #f0fff4; border-radius: 6px; border-left: 4px solid #27ae60; white-space: pre-wrap;">
+                {{ dispute.resolution }}
+            </div>
+        </div>
+    {% endif %}
+
+    {% if dispute.status == 'open' or dispute.status == 'investigating' %}
+        <div class="card">
+            <h3 style="margin-bottom: 1rem;">争议处理</h3>
+            <div class="action-bar">
+                <a href="{% url 'places:dispute_resolve' dispute.pk %}" class="btn btn-success">解决争议</a>
+                <a href="{% url 'places:dispute_reject' dispute.pk %}" class="btn btn-secondary">驳回争议</a>
+            </div>
+        </div>
+    {% else %}
+        <div class="card">
+            <h3 style="margin-bottom: 1rem;">重新开启</h3>
+            <p style="color: #666; margin-bottom: 1rem;">
+                如对处理结果有异议，可重新开启此争议。
+            </p>
+            <div class="action-bar">
+                <a href="{% url 'places:dispute_reopen' dispute.pk %}" class="btn btn-warning">重新开启</a>
+            </div>
+        </div>
+    {% endif %}
+{% endblock %}

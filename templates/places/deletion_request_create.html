@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block title %}申请删除 - {{ place.name }}{% endblock %}
+
+{% block content %}
+    <div style="margin-bottom: 1rem;">
+        <a href="{% url 'places:place_detail' place.pk %}" style="color: #3498db; text-decoration: none;">← 返回详情</a>
+    </div>
+
+    <div class="card">
+        <h2 style="margin-bottom: 1rem;">申请删除地名</h2>
+
+        <div class="alert alert-warning">
+            <strong>⚠ 注意：</strong>删除申请需经审核通过后方可执行。存在关联数据的地名，系统将不允许直接删除。
+        </div>
+
+        <div style="padding: 1rem; background: #f8f9fa; border-radius: 6px; margin-bottom: 1.5rem;">
+            <h4 style="margin-top: 0;">{{ place.name }}</h4>
+            {% if place.alternative_name %}
+                <p style="color: #7f8c8d; margin-bottom: 0.5rem;">别名：{{ place.alternative_name }}</p>
+            {% endif %}
+            <p style="margin-bottom: 0.5rem;"><strong>地区：</strong>{{ place.region|default:'-' }}</p>
+            <p style="margin: 0;"><strong>可信度：</strong>{{ place.reliability }}%</p>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>申请人</label>
+                <input type="text" name="applicant" class="form-input" placeholder="请输入您的姓名">
+            </div>
+            <div class="form-group">
+                <label>删除理由 <span style="color: #e74c3c;">*</span></label>
+                <textarea name="reason" class="form-textarea" rows="5" placeholder="请详细说明删除该地名的理由..." required></textarea>
+            </div>
+            <div class="action-bar">
+                <a href="{% url 'places:place_detail' place.pk %}" class="btn btn-secondary">取消</a>
+                <button type="submit" class="btn btn-danger">提交删除申请</button>
+            </div>
+        </form>
+    </div>
+{% endblock %}

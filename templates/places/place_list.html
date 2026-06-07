@@ -41,6 +41,15 @@
             </select>
         </div>
         <div class="filter-group">
+            <label>审核状态</label>
+            <select name="review_status">
+                <option value="">全部状态</option>
+                {% for value, label in review_status_choices %}
+                    <option value="{{ value }}" {% if review_status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
             <button type="submit" class="btn">筛选</button>
         </div>
         <div class="filter-group">
@@ -66,6 +75,7 @@
                         <th>所属地区</th>
                         <th>年代</th>
                         <th>可信度</th>
+                        <th>审核状态</th>
                         <th>校勘状态</th>
                         <th>操作</th>
                     </tr>
@@ -97,6 +107,11 @@
                                 </div>
                             </td>
                             <td>
+                                <span class="badge {% if place.review_status == 'approved' or place.review_status == 'archived' %}badge-success{% elif place.review_status == 'rejected' %}badge-danger{% elif place.review_status == 'submitted' or place.review_status == 'reviewing' %}badge-warning{% else %}badge-secondary{% endif %}">
+                                    {{ place.get_review_status_display }}
+                                </span>
+                            </td>
+                            <td>
                                 <span class="badge {% if place.collation_status == 'completed' %}badge-success{% elif place.collation_status == 'in_progress' %}badge-warning{% else %}badge-secondary{% endif %}">
                                     {{ place.get_collation_status_display }}
                                 </span>
@@ -106,10 +121,8 @@
                             </td>
                             <td style="white-space: nowrap;">
                                 <a href="{% url 'places:place_detail' place.pk %}" class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">查看</a>
-                                {% if place.can_delete %}
-                                    <a href="{% url 'places:place_delete' place.pk %}" class="btn btn-danger" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">删除</a>
-                                {% else %}
-                                    <span class="badge badge-secondary" style="font-size: 0.75rem;" title="存在关联数据，无法删除">受保护</span>
+                                {% if place.review_status == 'draft' or place.review_status == 'rejected' %}
+                                    <a href="{% url 'places:place_edit' place.pk %}" class="btn" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">编辑</a>
                                 {% endif %}
                             </td>
                         </tr>

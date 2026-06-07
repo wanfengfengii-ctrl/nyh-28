@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+{% block title %}待审核列表{% endblock %}
+
+{% block content %}
+    <h2 style="margin-bottom: 1rem;">待审核地名</h2>
+
+    <div class="card">
+        <form method="get" class="filter-form" style="margin-bottom: 1rem;">
+            <div class="filter-group">
+                <label>审核状态</label>
+                <select name="status">
+                    <option value="">全部状态</option>
+                    {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if current_status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>关键字</label>
+                <input type="text" name="q" value="{{ search_q }}" placeholder="搜索地名...">
+            </div>
+            <div class="filter-group">
+                <button type="submit" class="btn">筛选</button>
+            </div>
+            <div class="filter-group">
+                <a href="{% url 'places:review_list' %}" class="btn btn-secondary">重置</a>
+            </div>
+        </form>
+
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+            <a href="{% url 'places:review_list' %}" class="btn {% if not current_status %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
+                全部
+            </a>
+            <a href="{% url 'places:review_list' %}?status=submitted" class="btn {% if current_status == 'submitted' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
+                待审核
+            </a>
+            <a href="{% url 'places:review_list' %}?status=reviewing" class="btn {% if current_status == 'reviewing' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
+                审核中
+            </a>
+            <a href="{% url 'places:review_list' %}?status=approved" class="btn {% if current_status == 'approved' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
+                已通过
+            </a>
+            <a href="{% url 'places:review_list' %}?status=rejected" class="btn {% if current_status == 'rejected' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
+                已驳回
+            </a>
+            <a href="{% url 'places:review_list' %}?status=archived" class="btn {% if current_status == 'archived' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
+                已归档
+            </a>
+        </div>
+
+        {% if places %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>地名</th>
+                        <th>地区</th>
+                        <th>提交人</th>
+                        <th>提交时间</th>
+                        <th>可信度</th>
+                        <th>状态</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for place in places %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'places:review_detail' place.pk %}" style="color: #2980b9; text-decoration: none;">
+                                    {{ place.name }}
+                                </a>
+                            </td>
+                            <td>{{ place.region|default:'-' }}</td>
+                            <td>{{ place.submitter|default:'-' }}</td>
+                            <td>{{ place.submitted_at|date:"Y-m-d"|default:'-' }}</td>
+                            <td>
+                                <span class="badge {% if place.reliability >= 80 %}badge-success{% elif place.reliability >= 50 %}badge-warning{% else %}badge-danger{% endif %}">
+                                    {{ place.reliability }}%
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge {% if place.review_status == 'approved' or place.review_status == 'archived' %}badge-success{% elif place.review_status == 'rejected' %}badge-danger{% elif place.review_status == 'submitted' or place.review_status == 'reviewing' %}badge-warning{% else %}badge-secondary{% endif %}">
+                                    {{ place.get_review_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="{% url 'places:review_detail' place.pk %}" class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">审核</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            {% if is_paginated %}
+                <div class="pagination">
+                    {% if page_obj.has_previous %}
+                        <a href="?{% if current_status %}status={{ current_status }}&{% endif %}{% if search_q %}q={{ search_q }}&{% endif %}page={{ page_obj.previous_page_number }}" class="btn btn-secondary">上一页</a>
+                    {% endif %}
+                    <span style="padding: 0.5rem 1rem;">第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页</span>
+                    {% if page_obj.has_next %}
+                        <a href="?{% if current_status %}status={{ current_status }}&{% endif %}{% if search_q %}q={{ search_q }}&{% endif %}page={{ page_obj.next_page_number }}" class="btn btn-secondary">下一页</a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <p>暂无待审核地名</p>
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}
