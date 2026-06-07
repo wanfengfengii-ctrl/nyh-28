@@ -547,6 +547,7 @@ def graph_data(request):
     year_keyword = request.GET.get('year', '')
     relation_type = request.GET.get('type', '')
     collation_status = request.GET.get('collation_status', '')
+    review_status = request.GET.get('review_status', '')
     relation_status = request.GET.get('relation_status', '')
     start_year_num = request.GET.get('start_year_num', '')
     end_year_num = request.GET.get('end_year_num', '')
@@ -628,6 +629,9 @@ def graph_data(request):
 
     if collation_status:
         places = places.filter(collation_status=collation_status)
+
+    if review_status:
+        places = places.filter(review_status=review_status)
 
     valid_ids = set(places.values_list('id', flat=True))
     edges = [

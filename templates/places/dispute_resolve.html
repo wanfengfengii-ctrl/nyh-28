@@ -22,12 +22,17 @@
         <form method="post">
             {% csrf_token %}
             <div class="form-group">
+                <label>处理人</label>
+                <input type="text" name="resolver" class="form-input" placeholder="请输入处理人姓名">
+            </div>
+            <div class="form-group">
                 <label>解决方式</label>
                 <select name="resolution_type" class="form-select">
-                    <option value="corrected">已修正</option>
-                    <option value="explained">已解释</option>
-                    <option value="withdrawn">撤回争议</option>
-                    <option value="other">其他</option>
+                    <option value="evidence">证据裁定</option>
+                    <option value="vote">投票表决</option>
+                    <option value="expert">专家裁定</option>
+                    <option value="merged">合并处理</option>
+                    <option value="withdrawn">撤回申请</option>
                 </select>
             </div>
             <div class="form-group">

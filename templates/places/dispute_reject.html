@@ -22,8 +22,12 @@
         <form method="post">
             {% csrf_token %}
             <div class="form-group">
+                <label>处理人</label>
+                <input type="text" name="resolver" class="form-input" placeholder="请输入处理人姓名">
+            </div>
+            <div class="form-group">
                 <label>驳回理由 <span style="color: #e74c3c;">*</span></label>
-                <textarea name="resolution" class="form-textarea" rows="5" placeholder="请详细说明驳回理由..." required></textarea>
+                <textarea name="reason" class="form-textarea" rows="5" placeholder="请详细说明驳回理由..." required></textarea>
             </div>
             <div class="action-bar">
                 <a href="{% url 'places:dispute_detail' dispute.pk %}" class="btn btn-secondary">取消</a>
