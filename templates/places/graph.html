@@ -1,0 +1,402 @@
+{% extends 'base.html' %}
+
+{% block title %}地名关系图 - 地方志古地名校勘系统{% endblock %}
+
+{% block extra_css %}
+    <style>
+        #cy {
+            width: 100%;
+            height: 600px;
+            background-color: #fafbfc;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+
+        .graph-controls {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: flex-end;
+        }
+
+        .graph-info {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            color: #555;
+        }
+
+        .node-detail-panel {
+            position: absolute;
+            right: 1rem;
+            top: 1rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            padding: 1rem;
+            width: 280px;
+            display: none;
+            z-index: 1000;
+            max-height: 80%;
+            overflow-y: auto;
+        }
+
+        .node-detail-panel h4 {
+            color: #2c3e50;
+            margin-bottom: 0.8rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #f39c12;
+        }
+
+        .node-detail-panel .detail-row {
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .node-detail-panel .detail-label {
+            color: #7f8c8d;
+            font-size: 0.8rem;
+        }
+
+        .node-detail-panel .detail-value {
+            color: #2c3e50;
+        }
+
+        .node-detail-panel .close-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.7rem;
+            cursor: pointer;
+            color: #95a5a6;
+            font-size: 1.2rem;
+            border: none;
+            background: none;
+        }
+
+        .node-detail-panel .close-btn:hover {
+            color: #e74c3c;
+        }
+
+        .graph-container {
+            position: relative;
+        }
+
+        .legend {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-top: 0.5rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: #555;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .toolbar button {
+            padding: 0.4rem 0.8rem;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: #555;
+        }
+
+        .toolbar button:hover {
+            background: #f0f0f0;
+            border-color: #3498db;
+            color: #3498db;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <h2 class="page-title">地名关系图</h2>
+
+    <div class="card">
+        <div class="graph-controls">
+            <div class="filter-group">
+                <label>所属地区</label>
+                <select id="filter-region">
+                    <option value="">全部地区</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>始见年代</label>
+                <input type="text" id="filter-year" placeholder="如：唐代">
+            </div>
+            <div class="filter-group">
+                <label>最低可信度</label>
+                <input type="number" id="filter-reliability" min="0" max="100" value="0" placeholder="0-100">
+            </div>
+            <div class="filter-group">
+                <button class="btn" onclick="loadGraphData()">应用筛选</button>
+            </div>
+            <div class="filter-group">
+                <button class="btn btn-secondary" onclick="resetFilters()">重置</button>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <button onclick="cy.zoom(cy.zoom() * 1.2)">放大</button>
+            <button onclick="cy.zoom(cy.zoom() * 0.8)">缩小</button>
+            <button onclick="cy.fit()">适应窗口</button>
+            <button onclick="cy.layout({name: 'cose', animate: true}).run()">重新布局</button>
+        </div>
+
+        <div class="legend" style="margin-top: 0.8rem;">
+            <div class="legend-item">
+                <div class="legend-color" style="background: #3498db;"></div>
+                <span>古地名节点</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #27ae60;"></div>
+                <span>异名关系边</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #f39c12; width: 10px; height: 10px;"></div>
+                <span>可信度高</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #e74c3c; width: 10px; height: 10px;"></div>
+                <span>可信度低</span>
+            </div>
+        </div>
+
+        <div class="graph-container" style="margin-top: 1rem;">
+            <div id="cy"></div>
+            <div id="node-detail" class="node-detail-panel">
+                <button class="close-btn" onclick="closeNodeDetail()">&times;</button>
+                <h4 id="detail-title">地名详情</h4>
+                <div id="detail-content"></div>
+            </div>
+        </div>
+
+        <div class="graph-info">
+            <span id="graph-stats">正在加载数据...</span>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+    <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+    <script>
+        var cy;
+
+        function initCytoscape() {
+            cy = cytoscape({
+                container: document.getElementById('cy'),
+                elements: [],
+                style: [
+                    {
+                        selector: 'node',
+                        style: {
+                            'background-color': '#3498db',
+                            'label': 'data(label)',
+                            'color': '#2c3e50',
+                            'text-valign': 'center',
+                            'text-halign': 'center',
+                            'font-size': '12px',
+                            'width': '60px',
+                            'height': '60px',
+                            'border-width': 2,
+                            'border-color': '#2980b9',
+                            'text-outline-width': 2,
+                            'text-outline-color': '#fff',
+                            'cursor': 'pointer'
+                        }
+                    },
+                    {
+                        selector: 'node[?highlight]',
+                        style: {
+                            'background-color': '#f39c12',
+                            'border-color': '#e67e22',
+                            'width': '70px',
+                            'height': '70px',
+                            'font-size': '14px',
+                            'font-weight': 'bold'
+                        }
+                    },
+                    {
+                        selector: 'edge',
+                        style: {
+                            'width': 2,
+                            'line-color': '#95a5a6',
+                            'target-arrow-color': '#95a5a6',
+                            'target-arrow-shape': 'none',
+                            'curve-style': 'bezier',
+                            'label': 'data(relation_type)',
+                            'font-size': '10px',
+                            'color': '#7f8c8d',
+                            'text-rotation': 'autorotate',
+                            'text-background-color': '#fff',
+                            'text-background-opacity': 0.8,
+                            'text-background-padding': '2px'
+                        }
+                    },
+                    {
+                        selector: 'edge[reliability >= 80]',
+                        style: {
+                            'line-color': '#27ae60',
+                            'width': 3
+                        }
+                    },
+                    {
+                        selector: 'edge[reliability >= 50][reliability < 80]',
+                        style: {
+                            'line-color': '#f39c12',
+                            'width': 2
+                        }
+                    },
+                    {
+                        selector: 'edge[reliability < 50]',
+                        style: {
+                            'line-color': '#e74c3c',
+                            'width': 1,
+                            'line-style': 'dashed'
+                        }
+                    }
+                ],
+                layout: {
+                    name: 'cose',
+                    animate: true,
+                    animationDuration: 500,
+                    nodeDimensionsIncludeLabels: true
+                }
+            });
+
+            cy.on('tap', 'node', function(evt) {
+                var node = evt.target;
+                showNodeDetail(node.data());
+            });
+
+            cy.on('tap', function(evt) {
+                if (evt.target === cy) {
+                    closeNodeDetail();
+                }
+            });
+        }
+
+        function loadGraphData() {
+            var region = document.getElementById('filter-region').value;
+            var year = document.getElementById('filter-year').value;
+            var reliability = document.getElementById('filter-reliability').value;
+
+            var params = new URLSearchParams();
+            if (region) params.append('region', region);
+            if (year) params.append('start_year', year);
+            if (reliability) params.append('min_reliability', reliability);
+
+            var url = '{% url "places:graph_data" %}?' + params.toString();
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    cy.elements().remove();
+                    cy.add(data.elements);
+
+                    if (data.elements.length > 0) {
+                        cy.layout({
+                            name: 'cose',
+                            animate: true,
+                            animationDuration: 800,
+                            nodeDimensionsIncludeLabels: true,
+                            idealEdgeLength: 100,
+                            edgeElasticity: 0.5,
+                            nestingFactor: 1.2,
+                            gravity: 0.8,
+                            numIter: 1000,
+                            initialTemp: 200,
+                            coolingFactor: 0.95,
+                            minTemp: 1.0
+                        }).run();
+                    }
+
+                    var nodeCount = cy.nodes().length;
+                    var edgeCount = cy.edges().length;
+                    document.getElementById('graph-stats').innerHTML =
+                        '当前显示 <strong>' + nodeCount + '</strong> 个地名节点，<strong>' + edgeCount + '</strong> 条关系边';
+
+                    var regionSelect = document.getElementById('filter-region');
+                    if (regionSelect.options.length <= 1 && data.regions) {
+                        data.regions.forEach(function(r) {
+                            var option = document.createElement('option');
+                            option.value = r;
+                            option.textContent = r;
+                            regionSelect.appendChild(option);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('加载关系图数据失败:', error);
+                    document.getElementById('graph-stats').textContent = '加载数据失败';
+                });
+        }
+
+        function showNodeDetail(data) {
+            var panel = document.getElementById('node-detail');
+            var title = document.getElementById('detail-title');
+            var content = document.getElementById('detail-content');
+
+            title.textContent = data.label;
+
+            var html = '';
+            if (data.alternative_name) {
+                html += '<div class="detail-row"><div class="detail-label">别名</div><div class="detail-value">' + data.alternative_name + '</div></div>';
+            }
+            if (data.region) {
+                html += '<div class="detail-row"><div class="detail-label">所属地区</div><div class="detail-value">' + data.region + '</div></div>';
+            }
+            if (data.start_year || data.end_year) {
+                html += '<div class="detail-row"><div class="detail-label">年代</div><div class="detail-value">' +
+                    (data.start_year || '?') + ' - ' + (data.end_year || '?') + '</div></div>';
+            }
+            html += '<div class="detail-row"><div class="detail-label">可信度</div><div class="detail-value">' + data.reliability + '%</div></div>';
+            html += '<div class="detail-row"><div class="detail-label">校勘状态</div><div class="detail-value">' + data.collation_status + '</div></div>';
+            if (data.url) {
+                html += '<div class="detail-row" style="margin-top: 1rem;"><a href="' + data.url + '" class="btn" style="text-decoration: none; display: inline-block;">查看详情 →</a></div>';
+            }
+
+            content.innerHTML = html;
+            panel.style.display = 'block';
+        }
+
+        function closeNodeDetail() {
+            document.getElementById('node-detail').style.display = 'none';
+        }
+
+        function resetFilters() {
+            document.getElementById('filter-region').value = '';
+            document.getElementById('filter-year').value = '';
+            document.getElementById('filter-reliability').value = '';
+            loadGraphData();
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initCytoscape();
+            loadGraphData();
+        });
+    </script>
+{% endblock %}

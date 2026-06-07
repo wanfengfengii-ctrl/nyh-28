@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block title %}异名关系 - 地方志古地名校勘系统{% endblock %}
+
+{% block content %}
+    <h2 class="page-title">异名关系</h2>
+
+    <form class="filter-form" method="get">
+        <div class="filter-group">
+            <label>关系类型</label>
+            <select name="type">
+                <option value="">全部类型</option>
+                {% for value, label in relation_type_choices %}
+                    <option value="{{ value }}" {% if relation_type == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>确认状态</label>
+            <select name="confirmed">
+                <option value="">全部</option>
+                <option value="yes" {% if confirmed == 'yes' %}selected{% endif %}>已确认</option>
+                <option value="no" {% if confirmed == 'no' %}selected{% endif %}>待确认</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>最低可信度</label>
+            <input type="number" name="min_reliability" value="{{ min_reliability }}" min="0" max="100" placeholder="0-100">
+        </div>
+        <div class="filter-group">
+            <button type="submit" class="btn">筛选</button>
+        </div>
+        <div class="filter-group">
+            <a href="{% url 'places:relation_list' %}" class="btn btn-secondary">重置</a>
+        </div>
+    </form>
+
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="margin-bottom: 0;">关系列表</h3>
+            <span style="color: #7f8c8d; font-size: 0.9rem;">共 {{ relations|length }} 条记录</span>
+        </div>
+
+        {% if relations %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>地名A</th>
+                        <th>关系类型</th>
+                        <th>地名B</th>
+                        <th>可信度</th>
+                        <th>状态</th>
+                        <th>创建时间</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rel in relations %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'places:place_detail' rel.name_a.pk %}" style="color: #2980b9; text-decoration: none;">
+                                    {{ rel.name_a.name }}
+                                </a>
+                            </td>
+                            <td>
+                                <span class="badge badge-info">{{ rel.get_relation_type_display }}</span>
+                            </td>
+                            <td>
+                                <a href="{% url 'places:place_detail' rel.name_b.pk %}" style="color: #2980b9; text-decoration: none;">
+                                    {{ rel.name_b.name }}
+                                </a>
+                            </td>
+                            <td style="min-width: 100px;">
+                                <span class="badge {% if rel.reliability >= 80 %}badge-success{% elif rel.reliability >= 50 %}badge-warning{% else %}badge-danger{% endif %}">
+                                    {{ rel.reliability }}%
+                                </span>
+                            </td>
+                            <td>
+                                {% if rel.confirmed %}
+                                    <span class="badge badge-success">已确认</span>
+                                {% else %}
+                                    <span class="badge badge-secondary">待确认</span>
+                                {% endif %}
+                            </td>
+                            <td style="color: #7f8c8d; font-size: 0.85rem;">
+                                {{ rel.created_at|date:"Y-m-d" }}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="empty-state">
+                <p>暂无符合条件的异名关系数据</p>
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}

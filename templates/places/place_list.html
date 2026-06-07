@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+
+{% block title %}古地名 - 地方志古地名校勘系统{% endblock %}
+
+{% block content %}
+    <h2 class="page-title">古地名档案</h2>
+
+    <form class="filter-form" method="get">
+        <div class="filter-group">
+            <label>搜索关键词</label>
+            <input type="text" name="q" value="{{ search_query }}" placeholder="输入地名、别名...">
+        </div>
+        <div class="filter-group">
+            <label>所属地区</label>
+            <select name="region">
+                <option value="">全部地区</option>
+                {% for r in regions %}
+                    <option value="{{ r }}" {% if region == r %}selected{% endif %}>{{ r }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>最低可信度</label>
+            <input type="number" name="min_reliability" value="{{ min_reliability }}" min="0" max="100" placeholder="0-100">
+        </div>
+        <div class="filter-group">
+            <label>最高可信度</label>
+            <input type="number" name="max_reliability" value="{{ max_reliability }}" min="0" max="100" placeholder="0-100">
+        </div>
+        <div class="filter-group">
+            <label>始见年代</label>
+            <input type="text" name="start_year" value="{{ start_year }}" placeholder="如：唐代">
+        </div>
+        <div class="filter-group">
+            <label>校勘状态</label>
+            <select name="collation_status">
+                <option value="">全部状态</option>
+                {% for value, label in collation_status_choices %}
+                    <option value="{{ value }}" {% if collation_status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <button type="submit" class="btn">筛选</button>
+        </div>
+        <div class="filter-group">
+            <a href="{% url 'places:place_list' %}" class="btn btn-secondary">重置</a>
+        </div>
+    </form>
+
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="margin-bottom: 0;">地名列表</h3>
+            <span style="color: #7f8c8d; font-size: 0.9rem;">共 {{ places|length }} 条记录</span>
+        </div>
+
+        {% if places %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>地名</th>
+                        <th>别名</th>
+                        <th>所属地区</th>
+                        <th>年代</th>
+                        <th>可信度</th>
+                        <th>校勘状态</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for place in places %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'places:place_detail' place.pk %}" style="color: #2980b9; text-decoration: none; font-weight: 500;">
+                                    {{ place.name }}
+                                </a>
+                            </td>
+                            <td>{{ place.alternative_name|default:'-' }}</td>
+                            <td>{{ place.region|default:'-' }}</td>
+                            <td>
+                                {% if place.start_year or place.end_year %}
+                                    {{ place.start_year|default:'?' }} - {{ place.end_year|default:'?' }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td style="min-width: 120px;">
+                                <span class="badge {% if place.reliability >= 80 %}badge-success{% elif place.reliability >= 50 %}badge-warning{% else %}badge-danger{% endif %}">
+                                    {{ place.reliability }}%
+                                </span>
+                                <div class="reliability-bar">
+                                    <div class="reliability-fill {% if place.reliability >= 80 %}reliability-high{% elif place.reliability >= 50 %}reliability-medium{% else %}reliability-low{% endif %}"
+                                         style="width: {{ place.reliability }}%;"></div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge {% if place.collation_status == 'completed' %}badge-success{% elif place.collation_status == 'in_progress' %}badge-warning{% else %}badge-secondary{% endif %}">
+                                    {{ place.get_collation_status_display }}
+                                </span>
+                                {% if place.has_unresolved_disputes %}
+                                    <span class="badge badge-danger" style="margin-left: 4px;">有争议</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'places:place_detail' place.pk %}" class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">查看</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="empty-state">
+                <p>暂无符合条件的古地名数据</p>
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}

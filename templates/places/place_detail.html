@@ -1,0 +1,217 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ place.name }} - 古地名详情{% endblock %}
+
+{% block content %}
+    <div style="margin-bottom: 1rem;">
+        <a href="{% url 'places:place_list' %}" style="color: #3498db; text-decoration: none;">← 返回地名列表</a>
+    </div>
+
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+                <h2 style="color: #2c3e50; margin-bottom: 0.5rem;">{{ place.name }}</h2>
+                {% if place.alternative_name %}
+                    <p style="color: #7f8c8d; font-size: 1rem;">别名：{{ place.alternative_name }}</p>
+                {% endif %}
+            </div>
+            <div style="text-align: right;">
+                <span class="badge {% if place.collation_status == 'completed' %}badge-success{% elif place.collation_status == 'in_progress' %}badge-warning{% else %}badge-secondary{% endif %}" style="font-size: 0.9rem; padding: 0.4rem 0.8rem;">
+                    {{ place.get_collation_status_display }}
+                </span>
+                {% if place.has_unresolved_disputes %}
+                    <div style="margin-top: 0.5rem;">
+                        <span class="badge badge-danger">有未解决争议</span>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <div class="detail-grid">
+            <div class="detail-item">
+                <div class="label">所属地区</div>
+                <div class="value">{{ place.region|default:'-' }}</div>
+            </div>
+            <div class="detail-item">
+                <div class="label">可信度</div>
+                <div class="value">
+                    <span class="badge {% if place.reliability >= 80 %}badge-success{% elif place.reliability >= 50 %}badge-warning{% else %}badge-danger{% endif %}">
+                        {{ place.reliability }}%
+                    </span>
+                </div>
+            </div>
+            <div class="detail-item">
+                <div class="label">始见年代</div>
+                <div class="value">{{ place.start_year|default:'-' }}</div>
+            </div>
+            <div class="detail-item">
+                <div class="label">废止年代</div>
+                <div class="value">{{ place.end_year|default:'-' }}</div>
+            </div>
+            {% if place.longitude and place.latitude %}
+                <div class="detail-item">
+                    <div class="label">地理坐标</div>
+                    <div class="value">{{ place.longitude }}, {{ place.latitude }}</div>
+                </div>
+            {% endif %}
+            <div class="detail-item">
+                <div class="label">更新时间</div>
+                <div class="value">{{ place.updated_at|date:"Y-m-d H:i" }}</div>
+            </div>
+        </div>
+
+        {% if place.description %}
+            <div class="section-divider"></div>
+            <div class="detail-item">
+                <div class="label">地名描述</div>
+                <div class="value" style="white-space: pre-wrap; margin-top: 0.5rem;">{{ place.description }}</div>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h3>文献出处</h3>
+        {% if literature_relations %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>文献名称</th>
+                        <th>作者/朝代</th>
+                        <th>引用细节</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for lit_rel in literature_relations %}
+                        <tr>
+                            <td>{{ lit_rel.literature.title }}</td>
+                            <td>
+                                {% if lit_rel.literature.author %}{{ lit_rel.literature.author }}{% endif %}
+                                {% if lit_rel.literature.dynasty %}（{{ lit_rel.literature.dynasty }}）{% endif %}
+                            </td>
+                            <td>{{ lit_rel.citation_detail|default:'-' }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="alert alert-warning">
+                该地名暂无文献出处记录。
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h3>异名关系（{{ related_places|length }} 条）</h3>
+        {% if related_places %}
+            {% for item in related_places %}
+                <div class="relation-item {% if item.relation.confirmed %}confirmed{% endif %}">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <a href="{% url 'places:place_detail' item.place.pk %}" style="color: #2980b9; text-decoration: none; font-weight: 500; font-size: 1.05rem;">
+                                {{ item.place.name }}
+                            </a>
+                            {% if item.place.alternative_name %}
+                                <span style="color: #7f8c8d; font-size: 0.9rem; margin-left: 0.5rem;">（{{ item.place.alternative_name }}）</span>
+                            {% endif %}
+                        </div>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <span class="badge badge-info">{{ item.relation.get_relation_type_display }}</span>
+                            {% if item.relation.confirmed %}
+                                <span class="badge badge-success">已确认</span>
+                            {% else %}
+                                <span class="badge badge-secondary">待确认</span>
+                            {% endif %}
+                            <span class="badge {% if item.relation.reliability >= 80 %}badge-success{% elif item.relation.reliability >= 50 %}badge-warning{% else %}badge-danger{% endif %}">
+                                可信度 {{ item.relation.reliability }}%
+                            </span>
+                        </div>
+                    </div>
+                    {% if item.relation.description %}
+                        <p style="color: #666; margin-top: 0.5rem; font-size: 0.9rem;">{{ item.relation.description }}</p>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <p>暂无异名关系数据</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h3>校勘意见</h3>
+        {% if collation_notes %}
+            {% for note in collation_notes %}
+                <div style="padding: 1rem; background: #f8f9fa; border-radius: 6px; margin-bottom: 1rem;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <strong style="color: #2c3e50;">{{ note.title }}</strong>
+                        <span style="color: #7f8c8d; font-size: 0.85rem;">
+                            {{ note.collator|default:'匿名' }} · {{ note.collation_date|date:"Y-m-d" }}
+                        </span>
+                    </div>
+                    <p style="color: #555; margin-bottom: 0.5rem;">{{ note.content }}</p>
+                    {% if note.conclusion %}
+                        <div style="background: white; padding: 0.8rem; border-left: 3px solid #27ae60; border-radius: 0 4px 4px 0;">
+                            <strong style="color: #27ae60;">校勘结论：</strong>
+                            <span>{{ note.conclusion }}</span>
+                        </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <p>暂无校勘意见</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h3>争议记录</h3>
+        {% if disputes %}
+            {% for dispute in disputes %}
+                <div style="padding: 1rem; background: {% if dispute.status == 'open' %}#fff5f5{% else %}#f0fff4{% endif %}; border-radius: 6px; margin-bottom: 1rem; border-left: 4px solid {% if dispute.status == 'open' %}#e74c3c{% else %}#27ae60{% endif %};">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <strong style="color: #2c3e50;">{{ dispute.title }}</strong>
+                        <span class="badge {% if dispute.status == 'open' %}badge-danger{% else %}badge-success{% endif %}">
+                            {{ dispute.get_status_display }}
+                        </span>
+                    </div>
+                    <p style="color: #555; margin-bottom: 0.5rem;">{{ dispute.content }}</p>
+                    <div style="font-size: 0.85rem; color: #7f8c8d;">
+                        提出者：{{ dispute.proposer|default:'匿名' }} · {{ dispute.created_at|date:"Y-m-d" }}
+                        {% if dispute.resolved_date %}
+                            · 解决日期：{{ dispute.resolved_date|date:"Y-m-d" }}
+                        {% endif %}
+                    </div>
+                    {% if dispute.resolution %}
+                        <div style="margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px dashed #ddd;">
+                            <strong style="color: {% if dispute.status == 'open' %}#f39c12{% else %}#27ae60{% endif %};">
+                                解决方案：
+                            </strong>
+                            <span style="color: #555;">{{ dispute.resolution }}</span>
+                        </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <p>暂无争议记录</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="card" style="background: #f8f9fa;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="color: #7f8c8d; font-size: 0.9rem;">
+                创建时间：{{ place.created_at|date:"Y-m-d H:i" }}
+            </span>
+            {% if not can_delete %}
+                <span style="color: #e74c3c; font-size: 0.85rem;">
+                    ⚠ 该地名存在关联关系，无法直接删除
+                </span>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}

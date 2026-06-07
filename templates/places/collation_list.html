@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block title %}校勘意见 - 地方志古地名校勘系统{% endblock %}
+
+{% block content %}
+    <h2 class="page-title">校勘意见</h2>
+
+    <form class="filter-form" method="get">
+        <div class="filter-group">
+            <label>地名</label>
+            <input type="text" name="place_name" value="{{ place_name }}" placeholder="输入地名...">
+        </div>
+        <div class="filter-group">
+            <label>校勘人</label>
+            <input type="text" name="collator" value="{{ collator }}" placeholder="输入校勘人...">
+        </div>
+        <div class="filter-group">
+            <button type="submit" class="btn">搜索</button>
+        </div>
+        <div class="filter-group">
+            <a href="{% url 'places:collation_list' %}" class="btn btn-secondary">重置</a>
+        </div>
+    </form>
+
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="margin-bottom: 0;">校勘意见列表</h3>
+            <span style="color: #7f8c8d; font-size: 0.9rem;">共 {{ notes|length }} 条记录</span>
+        </div>
+
+        {% if notes %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>地名</th>
+                        <th>意见标题</th>
+                        <th>校勘人</th>
+                        <th>校勘日期</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for note in notes %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'places:place_detail' note.place_name.pk %}" style="color: #2980b9; text-decoration: none;">
+                                    {{ note.place_name.name }}
+                                </a>
+                            </td>
+                            <td style="font-weight: 500;">{{ note.title }}</td>
+                            <td>{{ note.collator|default:'匿名' }}</td>
+                            <td style="color: #7f8c8d; font-size: 0.85rem;">
+                                {{ note.collation_date|date:"Y-m-d" }}
+                            </td>
+                            <td>
+                                <a href="{% url 'places:place_detail' note.place_name.pk %}" class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">查看</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="empty-state">
+                <p>暂无校勘意见数据</p>
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}

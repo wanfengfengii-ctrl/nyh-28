@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+
+{% block title %}首页 - 地方志古地名校勘系统{% endblock %}
+
+{% block content %}
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="number">{{ total_places }}</div>
+            <div class="label">古地名总数</div>
+        </div>
+        <div class="stat-card">
+            <div class="number">{{ total_relations }}</div>
+            <div class="label">已确认异名关系</div>
+        </div>
+        <div class="stat-card">
+            <div class="number">{{ total_literatures }}</div>
+            <div class="label">文献出处</div>
+        </div>
+        <div class="stat-card">
+            <div class="number" style="color: {% if open_disputes > 0 %}#e74c3c{% else %}#27ae60{% endif %};">{{ open_disputes }}</div>
+            <div class="label">待解决争议</div>
+        </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+        <div class="card">
+            <h3>最近添加的古地名</h3>
+            {% if recent_places %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>地名</th>
+                            <th>地区</th>
+                            <th>可信度</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for place in recent_places %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'places:place_detail' place.pk %}" style="color: #2980b9; text-decoration: none;">
+                                        {{ place.name }}
+                                    </a>
+                                </td>
+                                <td>{{ place.region|default:'-' }}</td>
+                                <td>
+                                    <span class="badge {% if place.reliability >= 80 %}badge-success{% elif place.reliability >= 50 %}badge-warning{% else %}badge-danger{% endif %}">
+                                        {{ place.reliability }}%
+                                    </span>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <div style="margin-top: 1rem; text-align: right;">
+                    <a href="{% url 'places:place_list' %}" class="btn btn-secondary">查看全部 →</a>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <p>暂无古地名数据</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <h3>最近的异名关系</h3>
+            {% if recent_relations %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>地名A</th>
+                            <th>关系</th>
+                            <th>地名B</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rel in recent_relations %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'places:place_detail' rel.name_a.pk %}" style="color: #2980b9; text-decoration: none;">
+                                        {{ rel.name_a.name }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <span class="badge badge-info">
+                                        {{ rel.get_relation_type_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href="{% url 'places:place_detail' rel.name_b.pk %}" style="color: #2980b9; text-decoration: none;">
+                                        {{ rel.name_b.name }}
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <div style="margin-top: 1rem; text-align: right;">
+                    <a href="{% url 'places:relation_list' %}" class="btn btn-secondary">查看全部 →</a>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <p>暂无异名关系数据</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>系统功能</h3>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1rem;">
+            <div style="padding: 1rem; background: #f8f9fa; border-radius: 6px; text-align: center;">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">📜</div>
+                <div style="font-weight: 600; color: #2c3e50; margin-bottom: 0.3rem;">古地名档案</div>
+                <div style="font-size: 0.85rem; color: #7f8c8d;">管理各地地名的历史名称、年代与文献出处</div>
+            </div>
+            <div style="padding: 1rem; background: #f8f9fa; border-radius: 6px; text-align: center;">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">🔗</div>
+                <div style="font-weight: 600; color: #2c3e50; margin-bottom: 0.3rem;">异名关联</div>
+                <div style="font-size: 0.85rem; color: #7f8c8d;">建立同一地点不同名称之间的关联关系</div>
+            </div>
+            <div style="padding: 1rem; background: #f8f9fa; border-radius: 6px; text-align: center;">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">🕸️</div>
+                <div style="font-weight: 600; color: #2c3e50; margin-bottom: 0.3rem;">关系图谱</div>
+                <div style="font-size: 0.85rem; color: #7f8c8d;">可视化展示地名之间的复杂异名网络</div>
+            </div>
+            <div style="padding: 1rem; background: #f8f9fa; border-radius: 6px; text-align: center;">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">📚</div>
+                <div style="font-weight: 600; color: #2c3e50; margin-bottom: 0.3rem;">文献出处</div>
+                <div style="font-size: 0.85rem; color: #7f8c8d;">管理古籍文献，确保每条地名有据可查</div>
+            </div>
+            <div style="padding: 1rem; background: #f8f9fa; border-radius: 6px; text-align: center;">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">🔍</div>
+                <div style="font-weight: 600; color: #2c3e50; margin-bottom: 0.3rem;">校勘意见</div>
+                <div style="font-size: 0.85rem; color: #7f8c8d;">记录研究人员的校勘结论与考证过程</div>
+            </div>
+            <div style="padding: 1rem; background: #f8f9fa; border-radius: 6px; text-align: center;">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">⚖️</div>
+                <div style="font-weight: 600; color: #2c3e50; margin-bottom: 0.3rem;">争议记录</div>
+                <div style="font-size: 0.85rem; color: #7f8c8d;">追踪学术争议，记录解决方案与进展</div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
