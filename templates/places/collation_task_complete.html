@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block title %}完成任务 - {{ task.title }}{% endblock %}
+
+{% block content %}
+    <div style="margin-bottom: 1rem;">
+        <a href="{% url 'places:collation_task_detail' task.pk %}" style="color: #3498db; text-decoration: none;">← 返回任务详情</a>
+    </div>
+
+    <div class="card">
+        <h2>完成校勘任务</h2>
+
+        <div style="padding: 1rem; background: #f8f9fa; border-radius: 6px; margin-bottom: 1.5rem;">
+            <h4 style="margin-top: 0;">{{ task.title }}</h4>
+            <p>
+                <span class="badge badge-{{ task.get_priority_color }}">{{ task.get_priority_display }}</span>
+                <span class="badge badge-info">{{ task.get_task_type_display }}</span>
+            </p>
+            <p style="color: #7f8c8d; margin-bottom: 0.5rem;"><strong>任务描述：</strong></p>
+            <p style="white-space: pre-wrap; background: white; padding: 0.75rem; border-radius: 4px; margin: 0;">{{ task.description }}</p>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="form-errors">
+                    {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <div class="form-group">
+                <label>处理结果 <span style="color: #e74c3c;">*</span></label>
+                <textarea name="result" class="form-textarea" rows="8" placeholder="请详细描述校勘结果、结论和依据..." required></textarea>
+            </div>
+
+            <div class="action-bar">
+                <a href="{% url 'places:collation_task_detail' task.pk %}" class="btn btn-secondary">取消</a>
+                <button type="submit" class="btn btn-success">确认完成</button>
+            </div>
+        </form>
+    </div>
+{% endblock %}

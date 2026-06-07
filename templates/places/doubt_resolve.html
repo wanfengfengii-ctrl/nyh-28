@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block title %}处理疑点 - {{ doubt.title }}{% endblock %}
+
+{% block content %}
+    <div style="margin-bottom: 1rem;">
+        <a href="{% url 'places:doubt_detail' doubt.pk %}" style="color: #3498db; text-decoration: none;">← 返回疑点详情</a>
+    </div>
+
+    <div class="card">
+        <h2>处理疑点</h2>
+
+        <div style="padding: 1rem; background: #f8f9fa; border-radius: 6px; margin-bottom: 1.5rem;">
+            <h4 style="margin-top: 0;">{{ doubt.title }}</h4>
+            <p>
+                <span class="badge badge-{{ doubt.get_doubt_type_color }}">{{ doubt.get_doubt_type_display }}</span>
+                <span class="badge badge-{{ doubt.get_severity_color }}">{{ doubt.get_severity_display }}</span>
+                {% if doubt.status == 'pending' %}
+                    <span class="badge badge-warning">{{ doubt.get_status_display }}</span>
+                {% elif doubt.status == 'investigating' %}
+                    <span class="badge badge-info">{{ doubt.get_status_display }}</span>
+                {% endif %}
+            </p>
+            <p style="color: #7f8c8d; margin-bottom: 0;">{{ doubt.description|linebreaksbr }}</p>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="form-errors">
+                    {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <div class="form-group">
+                <label>操作类型 <span style="color: #e74c3c;">*</span></label>
+                <select name="action" class="form-select" required>
+                    {% for value, label in form.ACTION_CHOICES %}
+                        <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>处理人</label>
+                <input type="text" name="resolver" class="form-input" placeholder="请输入处理人姓名">
+            </div>
+
+            <div class="form-group">
+                <label>处理说明 <span style="color: #e74c3c;">*</span></label>
+                <textarea name="resolution" class="form-textarea" rows="6" placeholder="请详细说明处理结果或理由..." required></textarea>
+            </div>
+
+            <div class="action-bar">
+                <a href="{% url 'places:doubt_detail' doubt.pk %}" class="btn btn-secondary">取消</a>
+                <button type="submit" class="btn btn-success">确认处理</button>
+            </div>
+        </form>
+    </div>
+{% endblock %}

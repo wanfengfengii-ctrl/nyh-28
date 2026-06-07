@@ -1,0 +1,200 @@
+{% extends 'base.html' %}
+
+{% block title %}比对详情 - {{ comparison.name }}{% endblock %}
+
+{% block content %}
+    <div style="margin-bottom: 1rem;">
+        <a href="{% url 'places:comparison_list' %}" style="color: #3498db; text-decoration: none;">← 返回比对列表</a>
+    </div>
+
+    <div class="action-bar">
+        <h2 class="page-title">{{ comparison.name }}</h2>
+        {% if comparison.status in 'pending,failed' %}
+            <a href="{% url 'places:comparison_run' comparison.pk %}" class="btn btn-warning">执行比对</a>
+        {% endif %}
+        <a href="{% url 'places:comparison_delete' comparison.pk %}" class="btn btn-danger">删除</a>
+    </div>
+
+    <div class="card">
+        <div class="detail-grid">
+            <div class="detail-item">
+                <span class="label">任务状态</span>
+                <div class="value">
+                    {% if comparison.status == 'completed' %}
+                        <span class="badge badge-success">{{ comparison.get_status_display }}</span>
+                    {% elif comparison.status == 'running' %}
+                        <span class="badge badge-warning">{{ comparison.get_status_display }}</span>
+                    {% elif comparison.status == 'failed' %}
+                        <span class="badge badge-danger">{{ comparison.get_status_display }}</span>
+                    {% else %}
+                        <span class="badge badge-secondary">{{ comparison.get_status_display }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="detail-item">
+                <span class="label">执行人</span>
+                <div class="value">{{ comparison.operator|default:"-" }}</div>
+            </div>
+            <div class="detail-item">
+                <span class="label">比对地名数</span>
+                <div class="value">{{ comparison.total_places }}</div>
+            </div>
+            <div class="detail-item">
+                <span class="label">发现疑点</span>
+                <div class="value">
+                    {% if comparison.total_doubts > 0 %}
+                        <span class="badge badge-danger" style="font-size: 1rem;">{{ comparison.total_doubts }}</span>
+                    {% else %}
+                        0
+                    {% endif %}
+                </div>
+            </div>
+            <div class="detail-item">
+                <span class="label">创建时间</span>
+                <div class="value">{{ comparison.created_at|date:"Y-m-d H:i" }}</div>
+            </div>
+            <div class="detail-item">
+                <span class="label">完成时间</span>
+                <div class="value">{{ comparison.completed_at|date:"Y-m-d H:i"|default:"-" }}</div>
+            </div>
+        </div>
+        {% if comparison.description %}
+            <div class="section-divider"></div>
+            <div class="detail-item">
+                <span class="label">比对说明</span>
+                <div class="value" style="white-space: pre-wrap;">{{ comparison.description }}</div>
+            </div>
+        {% endif %}
+        {% if comparison.error_message %}
+            <div class="section-divider"></div>
+            <div class="alert alert-danger">
+                <strong>错误信息：</strong>{{ comparison.error_message }}
+            </div>
+        {% endif %}
+    </div>
+
+    {% if comparison.status == 'completed' %}
+        <div class="card">
+            <h3>疑点统计</h3>
+            <div class="stats-grid">
+                {% for key, stat in doubt_stats.items %}
+                    <div class="stat-card" style="border-top-color: {% if stat.count > 0 %}#e74c3c{% else %}#95a5a6{% endif %};">
+                        <div class="number">{{ stat.count }}</div>
+                        <div class="label">{{ stat.label }}</div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div style="margin-top: 1rem;">
+                <h4>按处理状态</h4>
+                <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                    {% for key, stat in status_stats.items %}
+                        <div class="stat-card" style="padding: 1rem; border-top-width: 3px;">
+                            <div class="number" style="font-size: 1.8rem;">{{ stat.count }}</div>
+                            <div class="label" style="font-size: 0.85rem;">{{ stat.label }}</div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>疑点列表</h3>
+
+            <form method="get" class="filter-form">
+                <div class="filter-group">
+                    <label>疑点类型</label>
+                    <select name="doubt_type" class="form-select">
+                        <option value="">全部</option>
+                        {% for value, label in doubt_type_choices %}
+                            <option value="{{ value }}" {% if doubt_type == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>处理状态</label>
+                    <select name="status" class="form-select">
+                        <option value="">全部</option>
+                        {% for value, label in status_choices %}
+                            <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>严重程度</label>
+                    <select name="severity" class="form-select">
+                        <option value="">全部</option>
+                        {% for value, label in severity_choices %}
+                            <option value="{{ value }}" {% if severity == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>&nbsp;</label>
+                    <button type="submit" class="btn btn-primary">筛选</button>
+                </div>
+            </form>
+
+            {% if doubts %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>疑点类型</th>
+                            <th>标题</th>
+                            <th>严重程度</th>
+                            <th>处理状态</th>
+                            <th>关联地名</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for doubt in doubts %}
+                            <tr>
+                                <td>
+                                    <span class="badge badge-{{ doubt.get_doubt_type_color }}">{{ doubt.get_doubt_type_display }}</span>
+                                </td>
+                                <td>
+                                    <a href="{% url 'places:doubt_detail' doubt.pk %}">{{ doubt.title }}</a>
+                                </td>
+                                <td>
+                                    <span class="badge badge-{{ doubt.get_severity_color }}">{{ doubt.get_severity_display }}</span>
+                                </td>
+                                <td>
+                                    {% if doubt.status == 'pending' %}
+                                        <span class="badge badge-warning">{{ doubt.get_status_display }}</span>
+                                    {% elif doubt.status == 'investigating' %}
+                                        <span class="badge badge-info">{{ doubt.get_status_display }}</span>
+                                    {% elif doubt.status == 'resolved' %}
+                                        <span class="badge badge-success">{{ doubt.get_status_display }}</span>
+                                    {% else %}
+                                        <span class="badge badge-secondary">{{ doubt.get_status_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if doubt.place_a %}
+                                        <a href="{% url 'places:place_detail' doubt.place_a.pk %}">{{ doubt.place_a.name }}</a>
+                                    {% endif %}
+                                    {% if doubt.place_b %}
+                                        ↔ <a href="{% url 'places:place_detail' doubt.place_b.pk %}">{{ doubt.place_b.name }}</a>
+                                    {% endif %}
+                                </td>
+                                <td>{{ doubt.created_at|date:"Y-m-d H:i" }}</td>
+                                <td>
+                                    <a href="{% url 'places:doubt_detail' doubt.pk %}" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">详情</a>
+                                    {% if doubt.status in 'pending,investigating' %}
+                                        <a href="{% url 'places:doubt_resolve' doubt.pk %}" class="btn btn-warning" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">处理</a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="empty-state">
+                    <p>暂无符合条件的疑点</p>
+                </div>
+            {% endif %}
+        </div>
+    {% endif %}
+{% endblock %}

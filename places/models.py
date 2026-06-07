@@ -669,6 +669,8 @@ class Annotation(models.Model):
         ('literature', '文献'),
         ('collation', '校勘意见'),
         ('dispute', '争议记录'),
+        ('doubt', '比对疑点'),
+        ('collation_task', '校勘任务'),
     ]
 
     target_type = models.CharField('目标类型', max_length=20, choices=TARGET_TYPE_CHOICES)
@@ -1096,3 +1098,304 @@ class OperationLog(models.Model):
             detail=detail,
             ip_address=ip_address,
         )
+
+
+class LiteratureComparison(models.Model):
+    STATUS_CHOICES = [
+        ('pending', '待执行'),
+        ('running', '执行中'),
+        ('completed', '已完成'),
+        ('failed', '失败'),
+    ]
+
+    name = models.CharField('比对任务名称', max_length=200)
+    description = models.TextField('比对说明', blank=True)
+    status = models.CharField(
+        '状态',
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
+    total_places = models.IntegerField('比对地名数', default=0)
+    total_doubts = models.IntegerField('发现疑点', default=0)
+    operator = models.CharField('执行人', max_length=100, blank=True)
+    started_at = models.DateTimeField('开始时间', null=True, blank=True)
+    completed_at = models.DateTimeField('完成时间', null=True, blank=True)
+    error_message = models.TextField('错误信息', blank=True)
+    created_at = models.DateTimeField('创建时间', auto_now_add=True)
+    updated_at = models.DateTimeField('更新时间', auto_now=True)
+
+    class Meta:
+        verbose_name = '文献比对任务'
+        verbose_name_plural = '文献比对任务'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'[{self.get_status_display()}] {self.name}'
+
+    def run_comparison(self):
+        from .comparison import run_full_comparison
+        self.status = 'running'
+        self.started_at = timezone.now()
+        self.save()
+        try:
+            result = run_full_comparison(self)
+            self.status = 'completed'
+            self.total_places = result.get('total_places', 0)
+            self.total_doubts = result.get('total_doubts', 0)
+            self.completed_at = timezone.now()
+            self.save()
+            return result
+        except Exception as e:
+            self.status = 'failed'
+            self.error_message = str(e)
+            self.completed_at = timezone.now()
+            self.save()
+            raise
+
+
+class ComparisonDoubt(models.Model):
+    DOUBT_TYPE_CHOICES = [
+        ('same_name_diff_place', '同名异地'),
+        ('diff_name_same_place', '异名同地'),
+        ('year_conflict', '年代冲突'),
+        ('region_conflict', '行政归属冲突'),
+        ('coordinate_conflict', '坐标冲突'),
+        ('reliability_abnormal', '可信度异常'),
+    ]
+
+    SEVERITY_CHOICES = [
+        ('high', '高'),
+        ('medium', '中'),
+        ('low', '低'),
+    ]
+
+    STATUS_CHOICES = [
+        ('pending', '待处理'),
+        ('investigating', '调查中'),
+        ('resolved', '已解决'),
+        ('dismissed', '已忽略'),
+    ]
+
+    comparison = models.ForeignKey(
+        LiteratureComparison,
+        on_delete=models.CASCADE,
+        related_name='doubts',
+        verbose_name='比对任务'
+    )
+    doubt_type = models.CharField(
+        '疑点类型',
+        max_length=30,
+        choices=DOUBT_TYPE_CHOICES
+    )
+    severity = models.CharField(
+        '严重程度',
+        max_length=10,
+        choices=SEVERITY_CHOICES,
+        default='medium'
+    )
+    status = models.CharField(
+        '处理状态',
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
+    title = models.CharField('疑点标题', max_length=200)
+    description = models.TextField('疑点描述')
+    conflict_detail = models.JSONField('冲突详情', default=dict)
+    evidence_data = models.JSONField('证据数据', default=list)
+    place_a = models.ForeignKey(
+        PlaceName,
+        on_delete=models.SET_NULL,
+        related_name='doubts_as_a',
+        verbose_name='地名A',
+        null=True,
+        blank=True
+    )
+    place_b = models.ForeignKey(
+        PlaceName,
+        on_delete=models.SET_NULL,
+        related_name='doubts_as_b',
+        verbose_name='地名B',
+        null=True,
+        blank=True
+    )
+    literature_a = models.ForeignKey(
+        Literature,
+        on_delete=models.SET_NULL,
+        related_name='doubts_as_a',
+        verbose_name='文献A',
+        null=True,
+        blank=True
+    )
+    literature_b = models.ForeignKey(
+        Literature,
+        on_delete=models.SET_NULL,
+        related_name='doubts_as_b',
+        verbose_name='文献B',
+        null=True,
+        blank=True
+    )
+    resolver = models.CharField('处理人', max_length=100, blank=True)
+    resolution = models.TextField('处理结果', blank=True)
+    resolved_at = models.DateTimeField('处理时间', null=True, blank=True)
+    created_at = models.DateTimeField('创建时间', auto_now_add=True)
+
+    class Meta:
+        verbose_name = '比对疑点'
+        verbose_name_plural = '比对疑点'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'[{self.get_doubt_type_display()}] {self.title}'
+
+    def get_doubt_type_color(self):
+        colors = {
+            'same_name_diff_place': 'danger',
+            'diff_name_same_place': 'warning',
+            'year_conflict': 'danger',
+            'region_conflict': 'warning',
+            'coordinate_conflict': 'danger',
+            'reliability_abnormal': 'info',
+        }
+        return colors.get(self.doubt_type, 'secondary')
+
+    def get_severity_color(self):
+        colors = {
+            'high': 'danger',
+            'medium': 'warning',
+            'low': 'info',
+        }
+        return colors.get(self.severity, 'secondary')
+
+    def mark_resolved(self, resolver='', resolution=''):
+        self.status = 'resolved'
+        self.resolver = resolver
+        self.resolution = resolution
+        self.resolved_at = timezone.now()
+        self.save()
+
+    def mark_dismissed(self, resolver='', reason=''):
+        self.status = 'dismissed'
+        self.resolver = resolver
+        self.resolution = reason
+        self.resolved_at = timezone.now()
+        self.save()
+
+    def mark_investigating(self):
+        self.status = 'investigating'
+        self.save()
+
+
+class CollationTask(models.Model):
+    TASK_TYPE_CHOICES = [
+        ('verify_doubt', '疑点核查'),
+        ('check_literature', '文献查证'),
+        ('correct_data', '数据修正'),
+        ('supplement_info', '信息补充'),
+        ('other', '其他'),
+    ]
+
+    PRIORITY_CHOICES = [
+        ('urgent', '紧急'),
+        ('high', '高'),
+        ('medium', '中'),
+        ('low', '低'),
+    ]
+
+    STATUS_CHOICES = [
+        ('pending', '待处理'),
+        ('in_progress', '处理中'),
+        ('completed', '已完成'),
+        ('cancelled', '已取消'),
+    ]
+
+    doubt = models.ForeignKey(
+        ComparisonDoubt,
+        on_delete=models.SET_NULL,
+        related_name='collation_tasks',
+        verbose_name='关联疑点',
+        null=True,
+        blank=True
+    )
+    task_type = models.CharField(
+        '任务类型',
+        max_length=20,
+        choices=TASK_TYPE_CHOICES,
+        default='verify_doubt'
+    )
+    priority = models.CharField(
+        '优先级',
+        max_length=10,
+        choices=PRIORITY_CHOICES,
+        default='medium'
+    )
+    status = models.CharField(
+        '状态',
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
+    title = models.CharField('任务标题', max_length=200)
+    description = models.TextField('任务描述')
+    place_name = models.ForeignKey(
+        PlaceName,
+        on_delete=models.SET_NULL,
+        related_name='collation_tasks',
+        verbose_name='关联地名',
+        null=True,
+        blank=True
+    )
+    literature = models.ForeignKey(
+        Literature,
+        on_delete=models.SET_NULL,
+        related_name='collation_tasks',
+        verbose_name='关联文献',
+        null=True,
+        blank=True
+    )
+    assignee = models.CharField('指派给', max_length=100, blank=True)
+    creator = models.CharField('创建人', max_length=100, blank=True)
+    due_date = models.DateField('截止日期', null=True, blank=True)
+    result = models.TextField('处理结果', blank=True)
+    completed_at = models.DateTimeField('完成时间', null=True, blank=True)
+    created_at = models.DateTimeField('创建时间', auto_now_add=True)
+    updated_at = models.DateTimeField('更新时间', auto_now=True)
+
+    class Meta:
+        verbose_name = '待校勘任务'
+        verbose_name_plural = '待校勘任务'
+        ordering = ['-priority', '-created_at']
+
+    def __str__(self):
+        return f'[{self.get_status_display()}] {self.title}'
+
+    def get_priority_color(self):
+        colors = {
+            'urgent': 'danger',
+            'high': 'warning',
+            'medium': 'info',
+            'low': 'secondary',
+        }
+        return colors.get(self.priority, 'secondary')
+
+    def start(self):
+        if self.status != 'pending':
+            raise ValidationError('只有待处理的任务可以开始')
+        self.status = 'in_progress'
+        self.save()
+
+    def complete(self, result=''):
+        if self.status not in ['pending', 'in_progress']:
+            raise ValidationError('当前状态不允许完成')
+        self.status = 'completed'
+        self.result = result
+        self.completed_at = timezone.now()
+        self.save()
+
+    def cancel(self, reason=''):
+        if self.status in ['completed', 'cancelled']:
+            raise ValidationError('当前状态不允许取消')
+        self.status = 'cancelled'
+        self.result = reason
+        self.save()

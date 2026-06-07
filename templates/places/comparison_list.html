@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+
+{% block title %}文献比对任务{% endblock %}
+
+{% block content %}
+    <div class="action-bar">
+        <h2 class="page-title">文献比对任务</h2>
+        <a href="{% url 'places:comparison_create' %}" class="btn btn-primary">新建比对任务</a>
+    </div>
+
+    <div class="card">
+        <form method="get" class="filter-form">
+            <div class="filter-group">
+                <label>状态</label>
+                <select name="status" class="form-select">
+                    <option value="">全部</option>
+                    {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>&nbsp;</label>
+                <button type="submit" class="btn btn-primary">筛选</button>
+            </div>
+        </form>
+
+        {% if comparisons %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>任务名称</th>
+                        <th>状态</th>
+                        <th>比对地名数</th>
+                        <th>发现疑点</th>
+                        <th>执行人</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for comp in comparisons %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'places:comparison_detail' comp.pk %}">{{ comp.name }}</a>
+                            </td>
+                            <td>
+                                {% if comp.status == 'completed' %}
+                                    <span class="badge badge-success">{{ comp.get_status_display }}</span>
+                                {% elif comp.status == 'running' %}
+                                    <span class="badge badge-warning">{{ comp.get_status_display }}</span>
+                                {% elif comp.status == 'failed' %}
+                                    <span class="badge badge-danger">{{ comp.get_status_display }}</span>
+                                {% else %}
+                                    <span class="badge badge-secondary">{{ comp.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ comp.total_places }}</td>
+                            <td>
+                                {% if comp.total_doubts > 0 %}
+                                    <span class="badge badge-danger">{{ comp.total_doubts }}</span>
+                                {% else %}
+                                    0
+                                {% endif %}
+                            </td>
+                            <td>{{ comp.operator|default:"-" }}</td>
+                            <td>{{ comp.created_at|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                <a href="{% url 'places:comparison_detail' comp.pk %}" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">详情</a>
+                                {% if comp.status in 'pending,failed' %}
+                                    <a href="{% url 'places:comparison_run' comp.pk %}" class="btn btn-warning" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">执行</a>
+                                {% endif %}
+                                <a href="{% url 'places:comparison_delete' comp.pk %}" class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">删除</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="empty-state">
+                <p>暂无比对任务</p>
+                <p style="font-size: 0.9rem; margin-top: 0.5rem;">点击"新建比对任务"开始多文献自动比对</p>
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}

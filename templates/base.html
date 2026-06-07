@@ -686,7 +686,9 @@
         <a href="{% url 'places:graph' %}" class="{% if request.resolver_match.url_name == 'graph' %}active{% endif %}">关系图</a>
         <a href="{% url 'places:literature_list' %}" class="{% if 'literature' in request.resolver_match.url_name %}active{% endif %}">文献出处</a>
         <a href="{% url 'places:collation_list' %}" class="{% if 'collation' in request.resolver_match.url_name %}active{% endif %}">校勘意见</a>
-        <a href="{% url 'places:dispute_list' %}" class="{% if 'dispute' in request.resolver_match.url_name %}active{% endif %}">争议记录</a>
+        <a href="{% url 'places:dispute_list' %}" class="{% if 'dispute' in request.resolver_match.url_name and 'migration' not in request.resolver_match.url_name %}active{% endif %}">争议记录</a>
+        <a href="{% url 'places:comparison_list' %}" class="{% if 'comparison' in request.resolver_match.url_name or 'doubt' in request.resolver_match.url_name %}active{% endif %}">文献比对</a>
+        <a href="{% url 'places:collation_task_list' %}" class="{% if 'collation_task' in request.resolver_match.url_name %}active{% endif %}">待校勘任务</a>
         <a href="{% url 'places:operation_log_list' %}" class="{% if 'operation_log' in request.resolver_match.url_name %}active{% endif %}">操作日志</a>
         <a href="/admin/" target="_blank">管理后台</a>
         {% if user.is_authenticated %}

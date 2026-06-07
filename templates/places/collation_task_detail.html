@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+
+{% block title %}校勘任务详情 - {{ task.title }}{% endblock %}
+
+{% block content %}
+    <div style="margin-bottom: 1rem;">
+        <a href="{% url 'places:collation_task_list' %}" style="color: #3498db; text-decoration: none;">← 返回校勘任务列表</a>
+    </div>
+
+    <div class="action-bar">
+        <h2 class="page-title">{{ task.title }}</h2>
+        {% if task.status == 'pending' %}
+            <form method="post" action="{% url 'places:collation_task_start' task.pk %}" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary">开始处理</button>
+            </form>
+        {% endif %}
+        {% if task.status in 'pending,in_progress' %}
+            <a href="{% url 'places:collation_task_complete' task.pk %}" class="btn btn-success">完成任务</a>
+        {% endif %}
+        {% if task.status in 'pending,in_progress' %}
+            <form method="post" action="{% url 'places:collation_task_cancel' task.pk %}" style="display: inline;" onsubmit="return confirm('确定要取消此任务吗？');">
+                {% csrf_token %}
+                <input type="hidden" name="reason" value="用户取消">
+                <button type="submit" class="btn btn-danger">取消任务</button>
+            </form>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <div class="detail-grid">
+            <div class="detail-item">
+                <span class="label">任务类型</span>
+                <div class="value">{{ task.get_task_type_display }}</div>
+            </div>
+            <div class="detail-item">
+                <span class="label">优先级</span>
+                <div class="value">
+                    <span class="badge badge-{{ task.get_priority_color }}">{{ task.get_priority_display }}</span>
+                </div>
+            </div>
+            <div class="detail-item">
+                <span class="label">状态</span>
+                <div class="value">
+                    {% if task.status == 'pending' %}
+                        <span class="badge badge-warning">{{ task.get_status_display }}</span>
+                    {% elif task.status == 'in_progress' %}
+                        <span class="badge badge-info">{{ task.get_status_display }}</span>
+                    {% elif task.status == 'completed' %}
+                        <span class="badge badge-success">{{ task.get_status_display }}</span>
+                    {% else %}
+                        <span class="badge badge-secondary">{{ task.get_status_display }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="detail-item">
+                <span class="label">创建人</span>
+                <div class="value">{{ task.creator|default:"-" }}</div>
+            </div>
+            <div class="detail-item">
+                <span class="label">指派给</span>
+                <div class="value">{{ task.assignee|default:"-" }}</div>
+            </div>
+            <div class="detail-item">
+                <span class="label">截止日期</span>
+                <div class="value">{{ task.due_date|date:"Y-m-d"|default:"-" }}</div>
+            </div>
+            <div class="detail-item">
+                <span class="label">关联地名</span>
+                <div class="value">
+                    {% if task.place_name %}
+                        <a href="{% url 'places:place_detail' task.place_name.pk %}">{{ task.place_name.name }}</a>
+                    {% else %}
+                        -
+                    {% endif %}
+                </div>
+            </div>
+            <div class="detail-item">
+                <span class="label">关联文献</span>
+                <div class="value">
+                    {% if task.literature %}
+                        <a href="{% url 'places:literature_detail' task.literature.pk %}">{{ task.literature.title }}</a>
+                    {% else %}
+                        -
+                    {% endif %}
+                </div>
+            </div>
+            <div class="detail-item">
+                <span class="label">创建时间</span>
+                <div class="value">{{ task.created_at|date:"Y-m-d H:i" }}</div>
+            </div>
+            {% if task.completed_at %}
+                <div class="detail-item">
+                    <span class="label">完成时间</span>
+                    <div class="value">{{ task.completed_at|date:"Y-m-d H:i" }}</div>
+                </div>
+            {% endif %}
+        </div>
+
+        {% if task.doubt %}
+            <div class="section-divider"></div>
+            <div class="detail-item">
+                <span class="label">关联疑点</span>
+                <div class="value">
+                    <a href="{% url 'places:doubt_detail' task.doubt.pk %}">{{ task.doubt.title }}</a>
+                    <span class="badge badge-{{ task.doubt.get_doubt_type_color }}" style="margin-left: 0.5rem;">{{ task.doubt.get_doubt_type_display }}</span>
+                </div>
+            </div>
+        {% endif %}
+
+        <div class="section-divider"></div>
+
+        <div class="detail-item">
+            <span class="label">任务描述</span>
+            <div class="value" style="white-space: pre-wrap; line-height: 1.8;">{{ task.description }}</div>
+        </div>
+    </div>
+
+    {% if task.result %}
+        <div class="card">
+            <h3>处理结果</h3>
+            <div class="detail-item">
+                <div class="value" style="white-space: pre-wrap; line-height: 1.8;">{{ task.result }}</div>
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="card">
+        <h3>协作批注</h3>
+        {% if annotations %}
+            {% for ann in annotations %}
+                <div class="annotation-item {% if ann.is_resolved %}resolved{% endif %}">
+                    <div class="annotation-header">
+                        <span>{{ ann.author|default:"匿名" }} · {{ ann.created_at|date:"Y-m-d H:i" }}</span>
+                        {% if not ann.is_resolved %}
+                            <form method="post" action="{% url 'places:annotation_resolve' ann.pk %}" style="display: inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-success" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">标记已解决</button>
+                            </form>
+                        {% else %}
+                            <span class="badge badge-success">已解决</span>
+                        {% endif %}
+                    </div>
+                    <div>{{ ann.content }}</div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p style="color: #95a5a6;">暂无批注</p>
+        {% endif %}
+
+        <div class="section-divider"></div>
+
+        <form method="post" action="{% url 'places:annotation_create' 'collation_task' task.pk %}">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>添加批注</label>
+                <textarea name="content" class="form-textarea" rows="3" placeholder="请输入批注内容..." required></textarea>
+            </div>
+            <div class="form-group">
+                <label>批注人</label>
+                <input type="text" name="author" class="form-input" placeholder="请输入您的姓名">
+            </div>
+            <button type="submit" class="btn btn-primary">提交批注</button>
+        </form>
+    </div>
+{% endblock %}

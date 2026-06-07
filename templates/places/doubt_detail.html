@@ -1,0 +1,354 @@
+{% extends 'base.html' %}
+
+{% block title %}疑点详情 - {{ doubt.title }}{% endblock %}
+
+{% block content %}
+    <div style="margin-bottom: 1rem;">
+        <a href="{% url 'places:comparison_detail' doubt.comparison.pk %}" style="color: #3498db; text-decoration: none;">← 返回比对详情</a>
+    </div>
+
+    <div class="action-bar">
+        <h2 class="page-title">{{ doubt.title }}</h2>
+        {% if doubt.status in 'pending,investigating' %}
+            <a href="{% url 'places:doubt_resolve' doubt.pk %}" class="btn btn-warning">处理疑点</a>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <div class="detail-grid">
+            <div class="detail-item">
+                <span class="label">疑点类型</span>
+                <div class="value">
+                    <span class="badge badge-{{ doubt.get_doubt_type_color }}" style="font-size: 0.9rem;">{{ doubt.get_doubt_type_display }}</span>
+                </div>
+            </div>
+            <div class="detail-item">
+                <span class="label">严重程度</span>
+                <div class="value">
+                    <span class="badge badge-{{ doubt.get_severity_color }}" style="font-size: 0.9rem;">{{ doubt.get_severity_display }}</span>
+                </div>
+            </div>
+            <div class="detail-item">
+                <span class="label">处理状态</span>
+                <div class="value">
+                    {% if doubt.status == 'pending' %}
+                        <span class="badge badge-warning">{{ doubt.get_status_display }}</span>
+                    {% elif doubt.status == 'investigating' %}
+                        <span class="badge badge-info">{{ doubt.get_status_display }}</span>
+                    {% elif doubt.status == 'resolved' %}
+                        <span class="badge badge-success">{{ doubt.get_status_display }}</span>
+                    {% else %}
+                        <span class="badge badge-secondary">{{ doubt.get_status_display }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="detail-item">
+                <span class="label">所属比对任务</span>
+                <div class="value">
+                    <a href="{% url 'places:comparison_detail' doubt.comparison.pk %}">{{ doubt.comparison.name }}</a>
+                </div>
+            </div>
+            <div class="detail-item">
+                <span class="label">关联地名A</span>
+                <div class="value">
+                    {% if doubt.place_a %}
+                        <a href="{% url 'places:place_detail' doubt.place_a.pk %}">{{ doubt.place_a.name }}</a>
+                    {% else %}
+                        -
+                    {% endif %}
+                </div>
+            </div>
+            <div class="detail-item">
+                <span class="label">关联地名B</span>
+                <div class="value">
+                    {% if doubt.place_b %}
+                        <a href="{% url 'places:place_detail' doubt.place_b.pk %}">{{ doubt.place_b.name }}</a>
+                    {% else %}
+                        -
+                    {% endif %}
+                </div>
+            </div>
+            <div class="detail-item">
+                <span class="label">创建时间</span>
+                <div class="value">{{ doubt.created_at|date:"Y-m-d H:i" }}</div>
+            </div>
+            {% if doubt.resolved_at %}
+                <div class="detail-item">
+                    <span class="label">处理时间</span>
+                    <div class="value">{{ doubt.resolved_at|date:"Y-m-d H:i" }}</div>
+                </div>
+            {% endif %}
+            {% if doubt.resolver %}
+                <div class="detail-item">
+                    <span class="label">处理人</span>
+                    <div class="value">{{ doubt.resolver }}</div>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="section-divider"></div>
+
+        <div class="detail-item">
+            <span class="label">疑点描述</span>
+            <div class="value" style="white-space: pre-wrap; line-height: 1.8;">{{ doubt.description }}</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>冲突说明</h3>
+        {% if doubt.conflict_detail %}
+            <div style="background: #fff3cd; padding: 1rem; border-radius: 6px; border-left: 4px solid #f39c12;">
+                {% if doubt.doubt_type == 'same_name_diff_place' %}
+                    <h4 style="margin-top: 0; color: #856404;">同名异地冲突</h4>
+                    <div class="detail-grid">
+                        <div>
+                            <p><strong>地名A：</strong>{{ doubt.conflict_detail.place_a.name }}</p>
+                            <p><strong>所属地区：</strong>{{ doubt.conflict_detail.place_a.region|default:"未填写" }}</p>
+                            <p><strong>坐标：</strong>
+                                {% if doubt.conflict_detail.place_a.longitude %}
+                                    {{ doubt.conflict_detail.place_a.longitude }}, {{ doubt.conflict_detail.place_a.latitude }}
+                                {% else %}
+                                    未填写
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div>
+                            <p><strong>地名B：</strong>{{ doubt.conflict_detail.place_b.name }}</p>
+                            <p><strong>所属地区：</strong>{{ doubt.conflict_detail.place_b.region|default:"未填写" }}</p>
+                            <p><strong>坐标：</strong>
+                                {% if doubt.conflict_detail.place_b.longitude %}
+                                    {{ doubt.conflict_detail.place_b.longitude }}, {{ doubt.conflict_detail.place_b.latitude }}
+                                {% else %}
+                                    未填写
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    <p style="margin-top: 0.5rem;">
+                        <strong>两地距离：</strong>
+                        <span class="badge badge-danger" style="font-size: 0.9rem;">约 {{ doubt.conflict_detail.distance_km }} 公里</span>
+                    </p>
+                {% elif doubt.doubt_type == 'diff_name_same_place' %}
+                    <h4 style="margin-top: 0; color: #856404;">异名同地疑点</h4>
+                    <div class="detail-grid">
+                        <div>
+                            <p><strong>地名A：</strong>{{ doubt.conflict_detail.place_a.name }}</p>
+                            <p><strong>别名：</strong>{{ doubt.conflict_detail.place_a.alternative_name|default:"无" }}</p>
+                            <p><strong>所属地区：</strong>{{ doubt.conflict_detail.place_a.region|default:"未填写" }}</p>
+                            <p><strong>坐标：</strong>{{ doubt.conflict_detail.place_a.longitude }}, {{ doubt.conflict_detail.place_a.latitude }}</p>
+                        </div>
+                        <div>
+                            <p><strong>地名B：</strong>{{ doubt.conflict_detail.place_b.name }}</p>
+                            <p><strong>别名：</strong>{{ doubt.conflict_detail.place_b.alternative_name|default:"无" }}</p>
+                            <p><strong>所属地区：</strong>{{ doubt.conflict_detail.place_b.region|default:"未填写" }}</p>
+                            <p><strong>坐标：</strong>{{ doubt.conflict_detail.place_b.longitude }}, {{ doubt.conflict_detail.place_b.latitude }}</p>
+                        </div>
+                    </div>
+                    <p style="margin-top: 0.5rem;">
+                        <strong>两地距离：</strong>
+                        <span class="badge badge-warning" style="font-size: 0.9rem;">约 {{ doubt.conflict_detail.distance_km }} 公里</span>
+                    </p>
+                    <p style="font-size: 0.9rem; color: #7f8c8d; margin-top: 0.5rem;">
+                        两地坐标接近，可能为同一地点的不同名称，建议核查。
+                    </p>
+                {% elif doubt.doubt_type == 'year_conflict' %}
+                    <h4 style="margin-top: 0; color: #856404;">年代冲突</h4>
+                    <p><strong>地名：</strong>{{ doubt.conflict_detail.place_name }}</p>
+                    <p><strong>始见年代：</strong>{{ doubt.conflict_detail.start_year|default:"未填写" }}</p>
+                    <p><strong>废止年代：</strong>{{ doubt.conflict_detail.end_year|default:"未填写" }}</p>
+                    <p><strong>冲突类型：</strong></p>
+                    <ul>
+                        {% for ct in doubt.conflict_detail.conflict_types %}
+                            <li>{{ ct }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% if doubt.conflict_detail.dynasties %}
+                        <p><strong>涉及朝代：</strong>{{ doubt.conflict_detail.dynasties|join:"、" }}</p>
+                    {% endif %}
+                {% elif doubt.doubt_type == 'region_conflict' %}
+                    <h4 style="margin-top: 0; color: #856404;">行政归属冲突</h4>
+                    <div class="detail-grid">
+                        <div>
+                            <p><strong>记载A：</strong>{{ doubt.conflict_detail.place_a.region }}</p>
+                        </div>
+                        <div>
+                            <p><strong>记载B：</strong>{{ doubt.conflict_detail.place_b.region }}</p>
+                        </div>
+                    </div>
+                    <p>同名地名在不同文献中记载的行政归属不一致。</p>
+                {% elif doubt.doubt_type == 'coordinate_conflict' %}
+                    <h4 style="margin-top: 0; color: #856404;">坐标冲突</h4>
+                    <div class="detail-grid">
+                        <div>
+                            <p><strong>地名A坐标：</strong>{{ doubt.conflict_detail.place_a.longitude }}, {{ doubt.conflict_detail.place_a.latitude }}</p>
+                        </div>
+                        <div>
+                            <p><strong>地名B坐标：</strong>{{ doubt.conflict_detail.place_b.longitude }}, {{ doubt.conflict_detail.place_b.latitude }}</p>
+                        </div>
+                    </div>
+                    <p style="margin-top: 0.5rem;">
+                        <strong>两地距离：</strong>
+                        <span class="badge badge-danger" style="font-size: 0.9rem;">约 {{ doubt.conflict_detail.distance_km }} 公里</span>
+                    </p>
+                {% elif doubt.doubt_type == 'reliability_abnormal' %}
+                    <h4 style="margin-top: 0; color: #856404;">可信度异常</h4>
+                    <p><strong>当前可信度：</strong>{{ doubt.conflict_detail.reliability }} 分</p>
+                    <p><strong>平均可信度：</strong>{{ doubt.conflict_detail.avg_reliability }} 分</p>
+                    <p><strong>低阈值：</strong>{{ doubt.conflict_detail.low_threshold }} 分</p>
+                    <p><strong>高阈值：</strong>{{ doubt.conflict_detail.high_threshold }} 分</p>
+                    <p><strong>关联文献数：</strong>{{ doubt.conflict_detail.literature_count }} 条</p>
+                    <p><strong>异常说明：</strong></p>
+                    <ul>
+                        {% for issue in doubt.conflict_detail.issues %}
+                            <li>{{ issue }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </div>
+        {% else %}
+            <p style="color: #95a5a6;">暂无冲突详情</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h3>证据对照表</h3>
+        {% if doubt.evidence_data %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>序号</th>
+                        <th>地名</th>
+                        <th>文献出处</th>
+                        <th>朝代</th>
+                        <th>所属地区</th>
+                        <th>坐标</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ev in doubt.evidence_data %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ ev.place_name }}</td>
+                            <td>{{ ev.literature }}</td>
+                            <td>{{ ev.dynasty|default:"-" }}</td>
+                            <td>{{ ev.region|default:"-" }}</td>
+                            <td>{{ ev.coord|default:"-" }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p style="color: #95a5a6;">暂无证据数据</p>
+        {% endif %}
+    </div>
+
+    {% if doubt.resolution %}
+        <div class="card">
+            <h3>处理结果</h3>
+            <div class="detail-item">
+                <span class="label">处理人</span>
+                <div class="value">{{ doubt.resolver|default:"-" }}</div>
+            </div>
+            <div class="detail-item">
+                <span class="label">处理时间</span>
+                <div class="value">{{ doubt.resolved_at|date:"Y-m-d H:i"|default:"-" }}</div>
+            </div>
+            <div class="detail-item">
+                <span class="label">处理说明</span>
+                <div class="value" style="white-space: pre-wrap;">{{ doubt.resolution }}</div>
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="card">
+        <h3>待校勘任务</h3>
+        <div class="action-bar">
+            <a href="{% url 'places:collation_task_create' %}?doubt_id={{ doubt.pk }}" class="btn btn-primary">新建校勘任务</a>
+        </div>
+        {% if collation_tasks %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>任务标题</th>
+                        <th>任务类型</th>
+                        <th>优先级</th>
+                        <th>状态</th>
+                        <th>指派给</th>
+                        <th>截止日期</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for task in collation_tasks %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'places:collation_task_detail' task.pk %}">{{ task.title }}</a>
+                            </td>
+                            <td>{{ task.get_task_type_display }}</td>
+                            <td>
+                                <span class="badge badge-{{ task.get_priority_color }}">{{ task.get_priority_display }}</span>
+                            </td>
+                            <td>
+                                {% if task.status == 'pending' %}
+                                    <span class="badge badge-warning">{{ task.get_status_display }}</span>
+                                {% elif task.status == 'in_progress' %}
+                                    <span class="badge badge-info">{{ task.get_status_display }}</span>
+                                {% elif task.status == 'completed' %}
+                                    <span class="badge badge-success">{{ task.get_status_display }}</span>
+                                {% else %}
+                                    <span class="badge badge-secondary">{{ task.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ task.assignee|default:"-" }}</td>
+                            <td>{{ task.due_date|date:"Y-m-d"|default:"-" }}</td>
+                            <td>
+                                <a href="{% url 'places:collation_task_detail' task.pk %}" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">详情</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p style="color: #95a5a6;">暂无关联的校勘任务</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h3>协作批注</h3>
+        {% if annotations %}
+            {% for ann in annotations %}
+                <div class="annotation-item {% if ann.is_resolved %}resolved{% endif %}">
+                    <div class="annotation-header">
+                        <span>{{ ann.author|default:"匿名" }} · {{ ann.created_at|date:"Y-m-d H:i" }}</span>
+                        {% if not ann.is_resolved %}
+                            <form method="post" action="{% url 'places:annotation_resolve' ann.pk %}" style="display: inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-success" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">标记已解决</button>
+                            </form>
+                        {% else %}
+                            <span class="badge badge-success">已解决</span>
+                        {% endif %}
+                    </div>
+                    <div>{{ ann.content }}</div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p style="color: #95a5a6;">暂无批注</p>
+        {% endif %}
+
+        <div class="section-divider"></div>
+
+        <form method="post" action="{% url 'places:annotation_create' 'doubt' doubt.pk %}">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>添加批注</label>
+                <textarea name="content" class="form-textarea" rows="3" placeholder="请输入批注内容..." required></textarea>
+            </div>
+            <div class="form-group">
+                <label>批注人</label>
+                <input type="text" name="author" class="form-input" placeholder="请输入您的姓名">
+            </div>
+            <button type="submit" class="btn btn-primary">提交批注</button>
+        </form>
+    </div>
+{% endblock %}

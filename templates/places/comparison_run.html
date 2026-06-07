@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block title %}执行比对 - {{ comparison.name }}{% endblock %}
+
+{% block content %}
+    <div style="margin-bottom: 1rem;">
+        <a href="{% url 'places:comparison_detail' comparison.pk %}" style="color: #3498db; text-decoration: none;">← 返回比对详情</a>
+    </div>
+
+    <div class="card">
+        <h2>执行文献比对</h2>
+        <p style="margin-bottom: 1rem;">
+            确认要执行比对任务 "<strong>{{ comparison.name }}</strong>" 吗？
+        </p>
+
+        <div class="alert alert-info">
+            <h4 style="margin-top: 0;">比对内容</h4>
+            <ul style="margin: 0.5rem 0 0 1.5rem;">
+                <li>同名异地检测</li>
+                <li>异名同地检测</li>
+                <li>年代冲突检测</li>
+                <li>行政归属冲突检测</li>
+                <li>坐标冲突检测</li>
+                <li>可信度异常检测</li>
+            </ul>
+        </div>
+
+        <p style="color: #7f8c8d; font-size: 0.9rem; margin-top: 1rem;">
+            系统将自动比对所有文献中的地名记录，识别上述疑点并生成疑点列表和待校勘任务。
+            比对可能需要一些时间，请耐心等待。
+        </p>
+
+        <form method="post" style="margin-top: 1.5rem;">
+            {% csrf_token %}
+            <div class="action-bar">
+                <a href="{% url 'places:comparison_detail' comparison.pk %}" class="btn btn-secondary">取消</a>
+                <button type="submit" class="btn btn-warning">开始比对</button>
+            </div>
+        </form>
+    </div>
+{% endblock %}

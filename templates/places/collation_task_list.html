@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+
+{% block title %}待校勘任务{% endblock %}
+
+{% block content %}
+    <div class="action-bar">
+        <h2 class="page-title">待校勘任务</h2>
+        <a href="{% url 'places:collation_task_create' %}" class="btn btn-primary">新建校勘任务</a>
+    </div>
+
+    <div class="card">
+        <form method="get" class="filter-form">
+            <div class="filter-group">
+                <label>任务类型</label>
+                <select name="task_type" class="form-select">
+                    <option value="">全部</option>
+                    {% for value, label in task_type_choices %}
+                        <option value="{{ value }}" {% if task_type == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>优先级</label>
+                <select name="priority" class="form-select">
+                    <option value="">全部</option>
+                    {% for value, label in priority_choices %}
+                        <option value="{{ value }}" {% if priority == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>状态</label>
+                <select name="status" class="form-select">
+                    <option value="">全部</option>
+                    {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>指派给</label>
+                <input type="text" name="assignee" class="form-input" placeholder="输入姓名搜索" value="{{ assignee }}">
+            </div>
+            <div class="filter-group">
+                <label>&nbsp;</label>
+                <button type="submit" class="btn btn-primary">筛选</button>
+            </div>
+        </form>
+
+        {% if tasks %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>优先级</th>
+                        <th>任务标题</th>
+                        <th>任务类型</th>
+                        <th>状态</th>
+                        <th>关联地名</th>
+                        <th>指派给</th>
+                        <th>截止日期</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for task in tasks %}
+                        <tr>
+                            <td>
+                                <span class="badge badge-{{ task.get_priority_color }}">{{ task.get_priority_display }}</span>
+                            </td>
+                            <td>
+                                <a href="{% url 'places:collation_task_detail' task.pk %}">{{ task.title }}</a>
+                            </td>
+                            <td>{{ task.get_task_type_display }}</td>
+                            <td>
+                                {% if task.status == 'pending' %}
+                                    <span class="badge badge-warning">{{ task.get_status_display }}</span>
+                                {% elif task.status == 'in_progress' %}
+                                    <span class="badge badge-info">{{ task.get_status_display }}</span>
+                                {% elif task.status == 'completed' %}
+                                    <span class="badge badge-success">{{ task.get_status_display }}</span>
+                                {% else %}
+                                    <span class="badge badge-secondary">{{ task.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if task.place_name %}
+                                    <a href="{% url 'places:place_detail' task.place_name.pk %}">{{ task.place_name.name }}</a>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>{{ task.assignee|default:"-" }}</td>
+                            <td>
+                                {% if task.due_date %}
+                                    {{ task.due_date|date:"Y-m-d" }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>{{ task.created_at|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                <a href="{% url 'places:collation_task_detail' task.pk %}" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">详情</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="empty-state">
+                <p>暂无待校勘任务</p>
+                <p style="font-size: 0.9rem; margin-top: 0.5rem;">点击"新建校勘任务"创建新的校勘任务</p>
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}

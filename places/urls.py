@@ -76,4 +76,20 @@ urlpatterns = [
     path('migration-disputes/<int:pk>/', views.migration_dispute_detail, name='migration_dispute_detail'),
     path('migration-disputes/<int:pk>/resolve/', views.migration_dispute_resolve, name='migration_dispute_resolve'),
     path('migration-disputes/<int:pk>/reopen/', views.migration_dispute_reopen, name='migration_dispute_reopen'),
+
+    path('comparisons/', views.comparison_list, name='comparison_list'),
+    path('comparisons/new/', views.comparison_create, name='comparison_create'),
+    path('comparisons/<int:pk>/', views.comparison_detail, name='comparison_detail'),
+    path('comparisons/<int:pk>/run/', views.comparison_run, name='comparison_run'),
+    path('comparisons/<int:pk>/delete/', views.comparison_delete, name='comparison_delete'),
+
+    path('doubts/<int:pk>/', views.doubt_detail, name='doubt_detail'),
+    path('doubts/<int:pk>/resolve/', views.doubt_resolve, name='doubt_resolve'),
+
+    path('collation-tasks/', views.collation_task_list, name='collation_task_list'),
+    path('collation-tasks/new/', views.collation_task_create, name='collation_task_create'),
+    path('collation-tasks/<int:pk>/', views.collation_task_detail, name='collation_task_detail'),
+    path('collation-tasks/<int:pk>/complete/', views.collation_task_complete, name='collation_task_complete'),
+    path('collation-tasks/<int:pk>/start/', views.collation_task_start, name='collation_task_start'),
+    path('collation-tasks/<int:pk>/cancel/', views.collation_task_cancel, name='collation_task_cancel'),
 ]

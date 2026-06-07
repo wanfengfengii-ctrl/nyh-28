@@ -13,6 +13,9 @@ from .models import (
     MigrationStage,
     MigrationEvidence,
     MigrationDispute,
+    LiteratureComparison,
+    ComparisonDoubt,
+    CollationTask,
 )
 
 
@@ -409,3 +412,71 @@ class MigrationReviewForm(forms.Form):
         if action == 'reject' and not comment:
             raise forms.ValidationError('驳回时必须填写审核意见')
         return cleaned_data
+
+
+class LiteratureComparisonForm(forms.ModelForm):
+    class Meta:
+        model = LiteratureComparison
+        fields = ['name', 'description', 'operator']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-input'}),
+            'description': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 4}),
+            'operator': forms.TextInput(attrs={'class': 'form-input'}),
+        }
+
+
+class ComparisonDoubtResolveForm(forms.Form):
+    ACTION_CHOICES = [
+        ('resolve', '标记已解决'),
+        ('dismiss', '标记忽略'),
+        ('investigate', '标记调查中'),
+    ]
+    action = forms.ChoiceField(
+        choices=ACTION_CHOICES,
+        label='操作类型',
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    resolver = forms.CharField(
+        label='处理人',
+        widget=forms.TextInput(attrs={'class': 'form-input'}),
+        required=False
+    )
+    resolution = forms.CharField(
+        label='处理说明',
+        widget=forms.Textarea(attrs={'class': 'form-textarea', 'rows': 4}),
+        required=True
+    )
+
+
+class CollationTaskForm(forms.ModelForm):
+    class Meta:
+        model = CollationTask
+        fields = [
+            'task_type', 'priority', 'title', 'description',
+            'place_name', 'literature', 'assignee', 'due_date'
+        ]
+        widgets = {
+            'task_type': forms.Select(attrs={'class': 'form-select'}),
+            'priority': forms.Select(attrs={'class': 'form-select'}),
+            'title': forms.TextInput(attrs={'class': 'form-input'}),
+            'description': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 4}),
+            'place_name': forms.Select(attrs={'class': 'form-select'}),
+            'literature': forms.Select(attrs={'class': 'form-select'}),
+            'assignee': forms.TextInput(attrs={'class': 'form-input'}),
+            'due_date': forms.DateInput(attrs={'class': 'form-input', 'type': 'date'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['place_name'].required = False
+        self.fields['literature'].required = False
+        self.fields['assignee'].required = False
+        self.fields['due_date'].required = False
+
+
+class CollationTaskCompleteForm(forms.Form):
+    result = forms.CharField(
+        label='处理结果',
+        widget=forms.Textarea(attrs={'class': 'form-textarea', 'rows': 5}),
+        required=True
+    )

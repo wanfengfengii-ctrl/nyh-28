@@ -25,6 +25,9 @@ from .models import (
     MigrationEvidence,
     MigrationDispute,
     MigrationVersion,
+    LiteratureComparison,
+    ComparisonDoubt,
+    CollationTask,
 )
 from .forms import (
     LiteratureForm,
@@ -47,6 +50,10 @@ from .forms import (
     MigrationEvidenceForm,
     MigrationDisputeForm,
     MigrationReviewForm,
+    LiteratureComparisonForm,
+    ComparisonDoubtResolveForm,
+    CollationTaskForm,
+    CollationTaskCompleteForm,
 )
 
 
@@ -2030,3 +2037,376 @@ def migration_map_data(request, pk):
         },
         'stages': stages_data,
     })
+
+
+def comparison_list(request):
+    comparisons = LiteratureComparison.objects.all().order_by('-created_at')
+    status = request.GET.get('status', '')
+    if status:
+        comparisons = comparisons.filter(status=status)
+
+    context = {
+        'comparisons': comparisons,
+        'status': status,
+        'status_choices': LiteratureComparison.STATUS_CHOICES,
+    }
+    return render(request, 'places/comparison_list.html', context)
+
+
+@login_required
+def comparison_create(request):
+    if request.method == 'POST':
+        form = LiteratureComparisonForm(request.POST)
+        if form.is_valid():
+            comparison = form.save()
+            OperationLog.log(
+                target_type='other',
+                target_id=comparison.id,
+                action='create',
+                target_name=comparison.name,
+                operator=form.cleaned_data.get('operator', ''),
+                detail='创建文献比对任务',
+                ip_address=_get_client_ip(request),
+            )
+            messages.success(request, f'比对任务 "{comparison.name}" 创建成功！')
+            return redirect('places:comparison_detail', pk=comparison.pk)
+    else:
+        form = LiteratureComparisonForm()
+
+    context = {
+        'form': form,
+        'form_title': '新建文献比对任务',
+    }
+    return render(request, 'places/form.html', context)
+
+
+def comparison_detail(request, pk):
+    comparison = get_object_or_404(LiteratureComparison, pk=pk)
+    doubts = comparison.doubts.select_related(
+        'place_a', 'place_b', 'literature_a', 'literature_b'
+    ).order_by('severity', '-created_at')
+
+    doubt_type = request.GET.get('doubt_type', '')
+    status = request.GET.get('status', '')
+    severity = request.GET.get('severity', '')
+
+    if doubt_type:
+        doubts = doubts.filter(doubt_type=doubt_type)
+    if status:
+        doubts = doubts.filter(status=status)
+    if severity:
+        doubts = doubts.filter(severity=severity)
+
+    doubt_stats = {}
+    for dt, label in ComparisonDoubt.DOUBT_TYPE_CHOICES:
+        doubt_stats[dt] = {
+            'label': label,
+            'count': comparison.doubts.filter(doubt_type=dt).count(),
+        }
+
+    status_stats = {}
+    for st, label in ComparisonDoubt.STATUS_CHOICES:
+        status_stats[st] = {
+            'label': label,
+            'count': comparison.doubts.filter(status=st).count(),
+        }
+
+    context = {
+        'comparison': comparison,
+        'doubts': doubts,
+        'doubt_type': doubt_type,
+        'status': status,
+        'severity': severity,
+        'doubt_stats': doubt_stats,
+        'status_stats': status_stats,
+        'doubt_type_choices': ComparisonDoubt.DOUBT_TYPE_CHOICES,
+        'status_choices': ComparisonDoubt.STATUS_CHOICES,
+        'severity_choices': ComparisonDoubt.SEVERITY_CHOICES,
+    }
+    return render(request, 'places/comparison_detail.html', context)
+
+
+@login_required
+def comparison_run(request, pk):
+    comparison = get_object_or_404(LiteratureComparison, pk=pk)
+
+    if comparison.status in ['running']:
+        messages.warning(request, '比对任务正在执行中，请稍候...')
+        return redirect('places:comparison_detail', pk=pk)
+
+    if request.method == 'POST':
+        try:
+            result = comparison.run_comparison()
+            OperationLog.log(
+                target_type='other',
+                target_id=comparison.id,
+                action='other',
+                target_name=comparison.name,
+                detail=f'执行文献比对，发现 {result["total_doubts"]} 个疑点',
+                ip_address=_get_client_ip(request),
+            )
+            messages.success(
+                request,
+                f'比对完成！共比对 {result["total_places"]} 个地名，发现 {result["total_doubts"]} 个疑点。'
+            )
+        except Exception as e:
+            messages.error(request, f'比对执行失败：{str(e)}')
+        return redirect('places:comparison_detail', pk=pk)
+
+    context = {
+        'comparison': comparison,
+    }
+    return render(request, 'places/comparison_run.html', context)
+
+
+@login_required
+def comparison_delete(request, pk):
+    comparison = get_object_or_404(LiteratureComparison, pk=pk)
+
+    if request.method == 'POST':
+        comp_name = comparison.name
+        comparison.delete()
+        OperationLog.log(
+            target_type='other',
+            target_id=pk,
+            action='delete',
+            target_name=comp_name,
+            detail='删除文献比对任务',
+            ip_address=_get_client_ip(request),
+        )
+        messages.success(request, f'比对任务 "{comp_name}" 已成功删除')
+        return redirect('places:comparison_list')
+
+    context = {
+        'object': comparison,
+        'object_name': comparison.name,
+        'object_type': '文献比对任务',
+        'can_delete': True,
+        'cancel_url': reverse('places:comparison_detail', args=[pk]),
+    }
+    return render(request, 'places/delete_confirm.html', context)
+
+
+def doubt_detail(request, pk):
+    doubt = get_object_or_404(
+        ComparisonDoubt.objects.select_related(
+            'comparison', 'place_a', 'place_b', 'literature_a', 'literature_b'
+        ),
+        pk=pk
+    )
+    annotations = Annotation.objects.filter(
+        target_type='doubt', target_id=doubt.id
+    ).order_by('-created_at')
+    collation_tasks = doubt.collation_tasks.all().order_by('-priority', '-created_at')
+
+    context = {
+        'doubt': doubt,
+        'annotations': annotations,
+        'annotation_form': AnnotationForm(),
+        'collation_tasks': collation_tasks,
+    }
+    return render(request, 'places/doubt_detail.html', context)
+
+
+@login_required
+def doubt_resolve(request, pk):
+    doubt = get_object_or_404(ComparisonDoubt, pk=pk)
+
+    if request.method == 'POST':
+        form = ComparisonDoubtResolveForm(request.POST)
+        if form.is_valid():
+            action = form.cleaned_data['action']
+            resolver = form.cleaned_data.get('resolver', '')
+            resolution = form.cleaned_data['resolution']
+
+            try:
+                if action == 'resolve':
+                    doubt.mark_resolved(resolver=resolver, resolution=resolution)
+                elif action == 'dismiss':
+                    doubt.mark_dismissed(resolver=resolver, reason=resolution)
+                elif action == 'investigate':
+                    doubt.mark_investigating()
+
+                OperationLog.log(
+                    target_type='other',
+                    target_id=doubt.id,
+                    action='resolve',
+                    target_name=doubt.title,
+                    operator=resolver,
+                    detail=f'处理疑点（{action}）：{resolution[:50]}...',
+                    ip_address=_get_client_ip(request),
+                )
+                messages.success(request, '疑点处理成功！')
+                return redirect('places:doubt_detail', pk=doubt.pk)
+            except ValidationError as e:
+                form.add_error(None, str(e))
+    else:
+        form = ComparisonDoubtResolveForm()
+
+    context = {
+        'doubt': doubt,
+        'form': form,
+    }
+    return render(request, 'places/doubt_resolve.html', context)
+
+
+def collation_task_list(request):
+    tasks = CollationTask.objects.select_related(
+        'doubt', 'place_name', 'literature'
+    ).order_by('-priority', '-created_at')
+
+    task_type = request.GET.get('task_type', '')
+    priority = request.GET.get('priority', '')
+    status = request.GET.get('status', '')
+    assignee = request.GET.get('assignee', '')
+
+    if task_type:
+        tasks = tasks.filter(task_type=task_type)
+    if priority:
+        tasks = tasks.filter(priority=priority)
+    if status:
+        tasks = tasks.filter(status=status)
+    if assignee:
+        tasks = tasks.filter(assignee__icontains=assignee)
+
+    context = {
+        'tasks': tasks,
+        'task_type': task_type,
+        'priority': priority,
+        'status': status,
+        'assignee': assignee,
+        'task_type_choices': CollationTask.TASK_TYPE_CHOICES,
+        'priority_choices': CollationTask.PRIORITY_CHOICES,
+        'status_choices': CollationTask.STATUS_CHOICES,
+    }
+    return render(request, 'places/collation_task_list.html', context)
+
+
+@login_required
+def collation_task_create(request):
+    doubt_id = request.GET.get('doubt_id', '')
+    if request.method == 'POST':
+        form = CollationTaskForm(request.POST)
+        if form.is_valid():
+            task = form.save(commit=False)
+            task.creator = form.cleaned_data.get('assignee', '')
+            task.save()
+            OperationLog.log(
+                target_type='other',
+                target_id=task.id,
+                action='create',
+                target_name=task.title,
+                operator=task.creator,
+                detail='创建待校勘任务',
+                ip_address=_get_client_ip(request),
+            )
+            messages.success(request, f'校勘任务 "{task.title}" 创建成功！')
+            if doubt_id:
+                return redirect('places:doubt_detail', pk=doubt_id)
+            return redirect('places:collation_task_list')
+    else:
+        initial = {}
+        if doubt_id:
+            try:
+                doubt = ComparisonDoubt.objects.get(id=doubt_id)
+                initial['doubt'] = doubt
+                initial['title'] = f'核查疑点：{doubt.title}'
+                initial['description'] = (
+                    f'疑点类型：{doubt.get_doubt_type_display()}\n'
+                    f'严重程度：{doubt.get_severity_display()}\n'
+                    f'疑点描述：{doubt.description}'
+                )
+                initial['place_name'] = doubt.place_a
+                initial['priority'] = doubt.severity
+                initial['task_type'] = 'verify_doubt'
+            except ComparisonDoubt.DoesNotExist:
+                pass
+        form = CollationTaskForm(initial=initial)
+
+    context = {
+        'form': form,
+        'form_title': '新建待校勘任务',
+        'doubt_id': doubt_id,
+    }
+    return render(request, 'places/form.html', context)
+
+
+def collation_task_detail(request, pk):
+    task = get_object_or_404(
+        CollationTask.objects.select_related('doubt', 'place_name', 'literature'),
+        pk=pk
+    )
+    annotations = Annotation.objects.filter(
+        target_type='collation_task', target_id=task.id
+    ).order_by('-created_at')
+
+    context = {
+        'task': task,
+        'annotations': annotations,
+        'annotation_form': AnnotationForm(),
+    }
+    return render(request, 'places/collation_task_detail.html', context)
+
+
+@login_required
+def collation_task_complete(request, pk):
+    task = get_object_or_404(CollationTask, pk=pk)
+
+    if request.method == 'POST':
+        form = CollationTaskCompleteForm(request.POST)
+        if form.is_valid():
+            try:
+                task.complete(result=form.cleaned_data['result'])
+                OperationLog.log(
+                    target_type='other',
+                    target_id=task.id,
+                    action='resolve',
+                    target_name=task.title,
+                    detail=f'完成校勘任务：{form.cleaned_data["result"][:50]}...',
+                    ip_address=_get_client_ip(request),
+                )
+                messages.success(request, '校勘任务已完成！')
+                return redirect('places:collation_task_detail', pk=task.pk)
+            except ValidationError as e:
+                form.add_error(None, str(e))
+    else:
+        form = CollationTaskCompleteForm()
+
+    context = {
+        'task': task,
+        'form': form,
+    }
+    return render(request, 'places/collation_task_complete.html', context)
+
+
+@login_required
+def collation_task_start(request, pk):
+    task = get_object_or_404(CollationTask, pk=pk)
+    if request.method == 'POST':
+        try:
+            task.start()
+            messages.success(request, '任务已开始处理！')
+        except ValidationError as e:
+            messages.error(request, str(e))
+    return redirect('places:collation_task_detail', pk=pk)
+
+
+@login_required
+def collation_task_cancel(request, pk):
+    task = get_object_or_404(CollationTask, pk=pk)
+    if request.method == 'POST':
+        reason = request.POST.get('reason', '')
+        try:
+            task.cancel(reason=reason)
+            OperationLog.log(
+                target_type='other',
+                target_id=task.id,
+                action='delete',
+                target_name=task.title,
+                detail=f'取消校勘任务：{reason[:50]}...',
+                ip_address=_get_client_ip(request),
+            )
+            messages.success(request, '任务已取消。')
+        except ValidationError as e:
+            messages.error(request, str(e))
+    return redirect('places:collation_task_detail', pk=pk)
