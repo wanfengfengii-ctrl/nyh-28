@@ -133,6 +133,7 @@
     <div class="tabs">
         <a href="#literatures" class="tab active" onclick="switchTab(event, 'literatures')">文献出处</a>
         <a href="#relations" class="tab" onclick="switchTab(event, 'relations')">异名关系</a>
+        <a href="#migrations" class="tab" onclick="switchTab(event, 'migrations')">时空迁移</a>
         <a href="#collations" class="tab" onclick="switchTab(event, 'collations')">校勘意见</a>
         <a href="#disputes" class="tab" onclick="switchTab(event, 'disputes')">争议记录</a>
         <a href="#versions" class="tab" onclick="switchTab(event, 'versions')">版本历史</a>
@@ -213,6 +214,67 @@
         {% else %}
             <div class="empty-state">
                 <p>暂无异名关系数据</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <div id="tab-migrations" class="tab-content card" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="margin: 0;">时空迁移对照（{{ migration_records|length }} 条）</h3>
+            <a href="{% url 'places:migration_create' %}?place_id={{ place.pk }}" class="btn btn-success" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">+ 新增迁移对照</a>
+        </div>
+        {% if migration_records %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>迁移标题</th>
+                        <th>类型</th>
+                        <th>朝代/时期</th>
+                        <th>可信度</th>
+                        <th>状态</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for migration in migration_records %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'places:migration_detail' migration.pk %}" style="color: #2980b9; text-decoration: none;">
+                                    {{ migration.title }}
+                                </a>
+                            </td>
+                            <td>{{ migration.get_migration_type_display }}</td>
+                            <td>{{ migration.dynasty|default:"-" }}</td>
+                            <td>
+                                <div class="reliability-bar" style="width: 80px;">
+                                    <div class="reliability-fill {% if migration.reliability >= 80 %}reliability-high{% elif migration.reliability >= 50 %}reliability-medium{% else %}reliability-low{% endif %}" style="width: {{ migration.reliability }}%;"></div>
+                                </div>
+                                <small>{{ migration.reliability }}%</small>
+                            </td>
+                            <td>
+                                {% if migration.status == 'draft' %}
+                                    <span class="badge badge-secondary">草稿</span>
+                                {% elif migration.status == 'submitted' %}
+                                    <span class="badge badge-warning">待审核</span>
+                                {% elif migration.status == 'approved' %}
+                                    <span class="badge badge-success">已通过</span>
+                                {% elif migration.status == 'rejected' %}
+                                    <span class="badge badge-danger">已驳回</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'places:migration_detail' migration.pk %}" class="btn" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">查看</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="empty-state">
+                <p>暂无时空迁移对照记录</p>
+                <p style="margin-top: 0.5rem;">
+                    <a href="{% url 'places:migration_create' %}?place_id={{ place.pk }}" class="btn btn-success">+ 新增迁移对照</a>
+                </p>
             </div>
         {% endif %}
     </div>

@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+
+{% block title %}时空迁移对照 - 地方志古地名校勘系统{% endblock %}
+
+{% block content %}
+    <h2 class="page-title">时空迁移对照</h2>
+
+    <div class="card">
+        <div class="action-bar">
+            <a href="{% url 'places:migration_create' %}" class="btn">新增迁移对照</a>
+            <a href="{% url 'places:migration_review_list' %}" class="btn btn-secondary">审核列表</a>
+        </div>
+
+        <form method="get" class="filter-form">
+            <div class="filter-group">
+                <label>关键词搜索</label>
+                <input type="text" name="q" value="{{ search_query }}" placeholder="搜索标题、地名...">
+            </div>
+            <div class="filter-group">
+                <label>朝代</label>
+                <select name="dynasty">
+                    <option value="">全部朝代</option>
+                    {% for d in dynasties %}
+                        <option value="{{ d }}" {% if dynasty == d %}selected{% endif %}>{{ d }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>地区</label>
+                <select name="region">
+                    <option value="">全部地区</option>
+                    {% for r in regions %}
+                        <option value="{{ r }}" {% if region == r %}selected{% endif %}>{{ r }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>迁移类型</label>
+                <select name="type">
+                    <option value="">全部类型</option>
+                    {% for value, label in migration_type_choices %}
+                        <option value="{{ value }}" {% if migration_type == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="display: flex; gap: 0.5rem; align-items: flex-end;">
+                <div class="filter-group">
+                    <label>最低可信度</label>
+                    <input type="number" name="min_reliability" min="0" max="100" value="{{ min_reliability }}" placeholder="0-100">
+                </div>
+                <div class="filter-group">
+                    <label>最高可信度</label>
+                    <input type="number" name="max_reliability" min="0" max="100" value="{{ max_reliability }}" placeholder="0-100">
+                </div>
+            </div>
+            <div class="filter-group">
+                <label>状态</label>
+                <select name="status">
+                    <option value="">全部状态</option>
+                    {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>争议状态</label>
+                <select name="has_dispute">
+                    <option value="">全部</option>
+                    <option value="yes" {% if has_dispute == 'yes' %}selected{% endif %}>有争议</option>
+                    <option value="no" {% if has_dispute == 'no' %}selected{% endif %}>无争议</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <button type="submit" class="btn">筛选</button>
+            </div>
+            <div class="filter-group">
+                <a href="{% url 'places:migration_list' %}" class="btn btn-secondary">重置</a>
+            </div>
+        </form>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>关联地名</th>
+                    <th>迁移标题</th>
+                    <th>类型</th>
+                    <th>朝代/年代</th>
+                    <th>地区</th>
+                    <th>可信度</th>
+                    <th>状态</th>
+                    <th>争议</th>
+                    <th>创建时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in records %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'places:place_detail' record.place_name.pk %}">{{ record.place_name.name }}</a>
+                        </td>
+                        <td>
+                            <a href="{% url 'places:migration_detail' record.pk %}">{{ record.title }}</a>
+                        </td>
+                        <td>{{ record.get_migration_type_display }}</td>
+                        <td>{{ record.dynasty|default:"-" }}</td>
+                        <td>{{ record.region|default:"-" }}</td>
+                        <td>
+                            <div class="reliability-bar">
+                                <div class="reliability-fill {% if record.reliability >= 80 %}reliability-high{% elif record.reliability >= 50 %}reliability-medium{% else %}reliability-low{% endif %}" style="width: {{ record.reliability }}%;"></div>
+                            </div>
+                            <small>{{ record.reliability }}%</small>
+                        </td>
+                        <td>
+                            {% if record.status == 'draft' %}
+                                <span class="badge badge-secondary">草稿</span>
+                            {% elif record.status == 'submitted' %}
+                                <span class="badge badge-warning">待审核</span>
+                            {% elif record.status == 'approved' %}
+                                <span class="badge badge-success">已通过</span>
+                            {% elif record.status == 'rejected' %}
+                                <span class="badge badge-danger">已驳回</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if record.has_dispute %}
+                                <span class="badge badge-danger">有争议</span>
+                            {% else %}
+                                <span class="badge badge-success">无争议</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ record.created_at|date:"Y-m-d" }}</td>
+                        <td>
+                            <a href="{% url 'places:migration_detail' record.pk %}" class="btn" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">详情</a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="10" class="empty-state">
+                            暂无时空迁移对照记录
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div style="margin-top: 1rem; color: #7f8c8d; font-size: 0.9rem;">
+            共 {{ records|length }} 条记录
+        </div>
+    </div>
+{% endblock %}

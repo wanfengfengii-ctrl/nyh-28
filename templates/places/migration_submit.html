@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block title %}提交审核 - {{ record.title }}{% endblock %}
+
+{% block content %}
+    <h2 class="page-title">提交审核</h2>
+
+    <div class="card">
+        <h3>{{ record.title }}</h3>
+        <p style="color: #7f8c8d; margin-bottom: 1rem;">
+            关联地名：<a href="{% url 'places:place_detail' record.place_name.pk %}">{{ record.place_name.name }}</a>
+        </p>
+
+        <div class="alert alert-warning">
+            <p><strong>注意：</strong></p>
+            <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                <li>提交后记录状态将变为"待审核"</li>
+                <li>审核通过前可以撤回修改</li>
+                <li>必须至少包含一个迁移阶段才能提交</li>
+            </ul>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>提交人</label>
+                <input type="text" name="submitter" class="form-input" placeholder="请输入提交人姓名" value="{{ record.submitter }}">
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-warning">确认提交</button>
+                <a href="{% url 'places:migration_detail' record.pk %}" class="btn btn-secondary">取消</a>
+            </div>
+        </form>
+    </div>
+{% endblock %}

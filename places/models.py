@@ -706,6 +706,327 @@ class Annotation(models.Model):
         self.save()
 
 
+class MigrationRecord(models.Model):
+    MIGRATION_TYPE_CHOICES = [
+        ('administrative', '行政变迁'),
+        ('geographic', '地理迁移'),
+        ('name_change', '名称变更'),
+        ('boundary_change', '边界变动'),
+        ('merge', '合并'),
+        ('split', '拆分'),
+        ('other', '其他'),
+    ]
+
+    STATUS_CHOICES = [
+        ('draft', '草稿'),
+        ('submitted', '待审核'),
+        ('approved', '已通过'),
+        ('rejected', '已驳回'),
+    ]
+
+    place_name = models.ForeignKey(
+        PlaceName,
+        on_delete=models.CASCADE,
+        related_name='migrations',
+        verbose_name='关联地名'
+    )
+    title = models.CharField('迁移标题', max_length=200)
+    migration_type = models.CharField(
+        '迁移类型',
+        max_length=20,
+        choices=MIGRATION_TYPE_CHOICES,
+        default='administrative'
+    )
+    region = models.CharField('所属地区', max_length=200, blank=True)
+    dynasty = models.CharField('朝代/年代', max_length=100, blank=True)
+    start_year = models.CharField('起始年代', max_length=50, blank=True)
+    end_year = models.CharField('结束年代', max_length=50, blank=True)
+    start_year_num = models.IntegerField('起始年(数值)', null=True, blank=True)
+    end_year_num = models.IntegerField('结束年(数值)', null=True, blank=True)
+    reliability = models.IntegerField('可信度', default=50)
+    migration_reason = models.TextField('迁移原因', blank=True)
+    conclusion = models.TextField('迁移结论', blank=True)
+    has_dispute = models.BooleanField('存在争议', default=False)
+    status = models.CharField(
+        '状态',
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='draft'
+    )
+    submitter = models.CharField('提交人', max_length=100, blank=True)
+    submitted_at = models.DateTimeField('提交时间', null=True, blank=True)
+    reviewer = models.CharField('审核人', max_length=100, blank=True)
+    reviewed_at = models.DateTimeField('审核时间', null=True, blank=True)
+    review_comment = models.TextField('审核意见', blank=True)
+    created_at = models.DateTimeField('创建时间', auto_now_add=True)
+    updated_at = models.DateTimeField('更新时间', auto_now=True)
+
+    class Meta:
+        verbose_name = '时空迁移对照'
+        verbose_name_plural = '时空迁移对照'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.place_name.name} - {self.title}'
+
+    def clean(self):
+        if self.reliability < 0 or self.reliability > 100:
+            raise ValidationError({'reliability': '可信度必须在 0-100 之间'})
+        if self.start_year_num is not None and self.end_year_num is not None:
+            if self.start_year_num > self.end_year_num:
+                raise ValidationError({
+                    'start_year_num': '起始年不能晚于结束年'
+                })
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        old_instance = None
+        if not is_new:
+            old_instance = MigrationRecord.objects.filter(pk=self.pk).first()
+
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+        if not is_new and old_instance:
+            self._create_version_if_changed(old_instance)
+
+    def _create_version_if_changed(self, old_instance):
+        fields_to_track = [
+            'title', 'migration_type', 'region', 'dynasty',
+            'start_year', 'end_year', 'start_year_num', 'end_year_num',
+            'reliability', 'migration_reason', 'conclusion', 'has_dispute'
+        ]
+        changes = {}
+        for field in fields_to_track:
+            old_val = getattr(old_instance, field)
+            new_val = getattr(self, field)
+            if old_val != new_val:
+                changes[field] = {
+                    'old': str(old_val) if old_val is not None else '',
+                    'new': str(new_val) if new_val is not None else '',
+                }
+        if changes:
+            latest_version = MigrationVersion.objects.filter(
+                migration_record=self
+            ).order_by('-version_number').first()
+            version_num = latest_version.version_number + 1 if latest_version else 1
+            MigrationVersion.objects.create(
+                migration_record=self,
+                version_number=version_num,
+                change_summary=json.dumps(changes, ensure_ascii=False),
+                change_fields=list(changes.keys()),
+            )
+
+    def get_stages_sorted(self):
+        return self.stages.order_by('start_year_num', 'start_year')
+
+    def submit_for_review(self, submitter=''):
+        if self.status not in ['draft', 'rejected']:
+            raise ValidationError('当前状态不允许提交审核')
+        if not self.stages.exists():
+            raise ValidationError('提交审核前必须至少添加一个迁移阶段')
+        self.status = 'submitted'
+        self.submitter = submitter
+        self.submitted_at = timezone.now()
+        self.save(update_fields=['status', 'submitter', 'submitted_at'])
+
+    def approve(self, reviewer='', comment=''):
+        if self.status not in ['submitted']:
+            raise ValidationError('当前状态不允许审核通过')
+        self.status = 'approved'
+        self.reviewer = reviewer
+        self.reviewed_at = timezone.now()
+        self.review_comment = comment
+        self.save(update_fields=[
+            'status', 'reviewer', 'reviewed_at', 'review_comment'
+        ])
+
+    def reject(self, reviewer='', comment=''):
+        if self.status not in ['submitted']:
+            raise ValidationError('当前状态不允许驳回')
+        if not comment:
+            raise ValidationError('驳回时必须填写审核意见')
+        self.status = 'rejected'
+        self.reviewer = reviewer
+        self.reviewed_at = timezone.now()
+        self.review_comment = comment
+        self.save(update_fields=[
+            'status', 'reviewer', 'reviewed_at', 'review_comment'
+        ])
+
+
+class MigrationStage(models.Model):
+    migration_record = models.ForeignKey(
+        MigrationRecord,
+        on_delete=models.CASCADE,
+        related_name='stages',
+        verbose_name='迁移记录'
+    )
+    stage_name = models.CharField('阶段名称', max_length=200)
+    dynasty = models.CharField('朝代/时期', max_length=100, blank=True)
+    start_year = models.CharField('起始年代', max_length=50, blank=True)
+    end_year = models.CharField('结束年代', max_length=50, blank=True)
+    start_year_num = models.IntegerField('起始年(数值)', null=True, blank=True)
+    end_year_num = models.IntegerField('结束年(数值)', null=True, blank=True)
+    place_name_text = models.CharField('当时地名', max_length=100, blank=True)
+    administrative_division = models.CharField('行政隶属', max_length=200, blank=True)
+    region = models.CharField('所属地区', max_length=200, blank=True)
+    longitude = models.FloatField('经度', null=True, blank=True)
+    latitude = models.FloatField('纬度', null=True, blank=True)
+    coordinate_range = models.TextField('坐标范围/四至', blank=True)
+    description = models.TextField('地理描述', blank=True)
+    evidence = models.TextField('证据说明', blank=True)
+    reliability = models.IntegerField('可信度', default=50)
+    order_index = models.IntegerField('排序', default=0)
+    created_at = models.DateTimeField('创建时间', auto_now_add=True)
+    updated_at = models.DateTimeField('更新时间', auto_now=True)
+
+    class Meta:
+        verbose_name = '迁移阶段'
+        verbose_name_plural = '迁移阶段'
+        ordering = ['order_index', 'start_year_num', 'start_year']
+
+    def __str__(self):
+        return f'{self.stage_name}（{self.start_year}-{self.end_year}）'
+
+    def clean(self):
+        if self.reliability < 0 or self.reliability > 100:
+            raise ValidationError({'reliability': '可信度必须在 0-100 之间'})
+
+
+class MigrationEvidence(models.Model):
+    migration_record = models.ForeignKey(
+        MigrationRecord,
+        on_delete=models.CASCADE,
+        related_name='evidences',
+        verbose_name='迁移记录'
+    )
+    stage = models.ForeignKey(
+        MigrationStage,
+        on_delete=models.SET_NULL,
+        related_name='evidences',
+        verbose_name='关联阶段',
+        null=True,
+        blank=True
+    )
+    literature = models.ForeignKey(
+        Literature,
+        on_delete=models.CASCADE,
+        related_name='migration_evidences',
+        verbose_name='文献出处'
+    )
+    citation_detail = models.CharField('引用细节', max_length=200, blank=True)
+    evidence_content = models.TextField('证据内容', blank=True)
+    evidence_type = models.CharField('证据类型', max_length=50, blank=True)
+    reliability = models.IntegerField('证据可信度', default=50)
+    order_index = models.IntegerField('排序', default=0)
+    created_at = models.DateTimeField('创建时间', auto_now_add=True)
+
+    class Meta:
+        verbose_name = '迁移证据'
+        verbose_name_plural = '迁移证据'
+        ordering = ['order_index', 'created_at']
+
+    def __str__(self):
+        return f'{self.literature.title} - {self.citation_detail}'
+
+    def clean(self):
+        if self.reliability < 0 or self.reliability > 100:
+            raise ValidationError({'reliability': '可信度必须在 0-100 之间'})
+
+
+class MigrationDispute(models.Model):
+    STATUS_CHOICES = [
+        ('open', '处理中'),
+        ('investigating', '调查中'),
+        ('resolved', '已解决'),
+        ('rejected', '已驳回'),
+        ('closed', '已关闭'),
+    ]
+
+    migration_record = models.ForeignKey(
+        MigrationRecord,
+        on_delete=models.CASCADE,
+        related_name='disputes',
+        verbose_name='迁移记录'
+    )
+    stage = models.ForeignKey(
+        MigrationStage,
+        on_delete=models.SET_NULL,
+        related_name='disputes',
+        verbose_name='关联阶段',
+        null=True,
+        blank=True
+    )
+    title = models.CharField('争议标题', max_length=200)
+    content = models.TextField('争议内容')
+    proposer = models.CharField('提出者', max_length=100, blank=True)
+    status = models.CharField(
+        '状态',
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='open'
+    )
+    resolution = models.TextField('解决方案', blank=True)
+    resolver = models.CharField('处理人', max_length=100, blank=True)
+    resolved_date = models.DateField('解决日期', null=True, blank=True)
+    created_at = models.DateTimeField('创建时间', auto_now_add=True)
+    updated_at = models.DateTimeField('更新时间', auto_now=True)
+
+    class Meta:
+        verbose_name = '迁移争议'
+        verbose_name_plural = '迁移争议'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'[{self.get_status_display()}] {self.title}'
+
+    def save(self, *args, **kwargs):
+        if self.status in ['resolved', 'rejected', 'closed'] and not self.resolved_date:
+            self.resolved_date = timezone.now().date()
+        if self.status in ['open', 'investigating']:
+            self.resolved_date = None
+        super().save(*args, **kwargs)
+        self._update_migration_dispute_status()
+
+    def _update_migration_dispute_status(self):
+        record = self.migration_record
+        has_open = record.disputes.filter(
+            status__in=['open', 'investigating']
+        ).exists()
+        if has_open != record.has_dispute:
+            record.has_dispute = has_open
+            record.save(update_fields=['has_dispute'])
+
+
+class MigrationVersion(models.Model):
+    migration_record = models.ForeignKey(
+        MigrationRecord,
+        on_delete=models.CASCADE,
+        related_name='versions',
+        verbose_name='迁移记录'
+    )
+    version_number = models.IntegerField('版本号', default=1)
+    change_summary = models.TextField('变更摘要', default='{}')
+    change_fields = models.JSONField('变更字段', default=list)
+    created_at = models.DateTimeField('创建时间', auto_now_add=True)
+
+    class Meta:
+        verbose_name = '迁移版本'
+        verbose_name_plural = '迁移版本'
+        ordering = ['-version_number']
+        unique_together = ('migration_record', 'version_number')
+
+    def __str__(self):
+        return f'{self.migration_record.title} - v{self.version_number}'
+
+    def get_changes_dict(self):
+        try:
+            return json.loads(self.change_summary)
+        except (json.JSONDecodeError, TypeError):
+            return {}
+
+
 class OperationLog(models.Model):
     ACTION_CHOICES = [
         ('create', '创建'),
@@ -728,6 +1049,7 @@ class OperationLog(models.Model):
         ('annotation', '批注'),
         ('deletion_request', '删除申请'),
         ('review', '审核记录'),
+        ('migration', '迁移对照'),
     ]
 
     target_type = models.CharField('目标类型', max_length=30, choices=TARGET_TYPE_CHOICES)

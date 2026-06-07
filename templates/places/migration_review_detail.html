@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+
+{% block title %}审核迁移对照 - {{ record.title }}{% endblock %}
+
+{% block content %}
+    <h2 class="page-title">审核迁移对照</h2>
+
+    <div class="card">
+        <h3>{{ record.title }}</h3>
+        <div class="detail-grid" style="margin-bottom: 1rem;">
+            <div class="detail-item">
+                <div class="label">关联地名</div>
+                <div class="value"><a href="{% url 'places:place_detail' record.place_name.pk %}">{{ record.place_name.name }}</a></div>
+            </div>
+            <div class="detail-item">
+                <div class="label">迁移类型</div>
+                <div class="value">{{ record.get_migration_type_display }}</div>
+            </div>
+            <div class="detail-item">
+                <div class="label">提交人</div>
+                <div class="value">{{ record.submitter|default:"-" }}</div>
+            </div>
+            <div class="detail-item">
+                <div class="label">提交时间</div>
+                <div class="value">{{ record.submitted_at|date:"Y-m-d H:i" }}</div>
+            </div>
+            <div class="detail-item">
+                <div class="label">可信度</div>
+                <div class="value">{{ record.reliability }}%</div>
+            </div>
+            <div class="detail-item">
+                <div class="label">阶段数量</div>
+                <div class="value">{{ record.stages.count }} 个</div>
+            </div>
+        </div>
+
+        {% if record.migration_reason %}
+            <div class="section-divider"></div>
+            <h4>迁移原因</h4>
+            <p>{{ record.migration_reason|linebreaks }}</p>
+        {% endif %}
+
+        {% if record.conclusion %}
+            <div class="section-divider"></div>
+            <h4>迁移结论</h4>
+            <p>{{ record.conclusion|linebreaks }}</p>
+        {% endif %}
+
+        <div class="section-divider"></div>
+        <p>
+            <a href="{% url 'places:migration_detail' record.pk %}" class="btn btn-secondary" target="_blank">查看完整详情 →</a>
+        </p>
+    </div>
+
+    <div class="card">
+        <h3>审核操作</h3>
+        {% if form.errors %}
+            <div class="form-errors">
+                {% for field, errors in form.errors.items %}
+                    {% for error in errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>{{ form.action.label }}</label>
+                {{ form.action }}
+            </div>
+            <div class="form-group">
+                <label>{{ form.comment.label }}</label>
+                {{ form.comment }}
+            </div>
+            <div class="form-group">
+                <label>{{ form.reviewer.label }}</label>
+                {{ form.reviewer }}
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn">提交审核结果</button>
+                <a href="{% url 'places:migration_review_list' %}" class="btn btn-secondary">返回列表</a>
+            </div>
+        </form>
+    </div>
+{% endblock %}

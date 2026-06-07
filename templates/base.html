@@ -681,7 +681,8 @@
             待审核 {% if pending_reviews_badge %}<span class="nav-badge">{{ pending_reviews_badge }}</span>{% endif %}
         </a>
         <a href="{% url 'places:deletion_request_list' %}" class="{% if 'deletion_request' in request.resolver_match.url_name %}active{% endif %}">删除申请</a>
-        <a href="{% url 'places:relation_list' %}" class="{% if 'relation' in request.resolver_match.url_name %}active{% endif %}">异名关系</a>
+        <a href="{% url 'places:relation_list' %}" class="{% if 'relation' in request.resolver_match.url_name and 'migration' not in request.resolver_match.url_name %}active{% endif %}">异名关系</a>
+        <a href="{% url 'places:migration_list' %}" class="{% if 'migration' in request.resolver_match.url_name %}active{% endif %}">时空迁移对照</a>
         <a href="{% url 'places:graph' %}" class="{% if request.resolver_match.url_name == 'graph' %}active{% endif %}">关系图</a>
         <a href="{% url 'places:literature_list' %}" class="{% if 'literature' in request.resolver_match.url_name %}active{% endif %}">文献出处</a>
         <a href="{% url 'places:collation_list' %}" class="{% if 'collation' in request.resolver_match.url_name %}active{% endif %}">校勘意见</a>

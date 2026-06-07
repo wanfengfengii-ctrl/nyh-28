@@ -9,6 +9,10 @@ from .models import (
     DeletionRequest,
     Annotation,
     ReviewRecord,
+    MigrationRecord,
+    MigrationStage,
+    MigrationEvidence,
+    MigrationDispute,
 )
 
 
@@ -260,3 +264,148 @@ class LiteratureCitationForm(forms.ModelForm):
             'literature': forms.Select(attrs={'class': 'form-select'}),
             'citation_detail': forms.TextInput(attrs={'class': 'form-input'}),
         }
+
+
+class MigrationRecordForm(forms.ModelForm):
+    class Meta:
+        model = MigrationRecord
+        fields = [
+            'place_name', 'title', 'migration_type', 'region', 'dynasty',
+            'start_year', 'end_year', 'start_year_num', 'end_year_num',
+            'reliability', 'migration_reason', 'conclusion', 'submitter'
+        ]
+        widgets = {
+            'place_name': forms.Select(attrs={'class': 'form-select'}),
+            'title': forms.TextInput(attrs={'class': 'form-input'}),
+            'migration_type': forms.Select(attrs={'class': 'form-select'}),
+            'region': forms.TextInput(attrs={'class': 'form-input'}),
+            'dynasty': forms.TextInput(attrs={'class': 'form-input'}),
+            'start_year': forms.TextInput(attrs={'class': 'form-input'}),
+            'end_year': forms.TextInput(attrs={'class': 'form-input'}),
+            'start_year_num': forms.NumberInput(attrs={'class': 'form-input', 'placeholder': '如：618'}),
+            'end_year_num': forms.NumberInput(attrs={'class': 'form-input', 'placeholder': '如：907'}),
+            'reliability': forms.NumberInput(attrs={'class': 'form-input', 'min': 0, 'max': 100}),
+            'migration_reason': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 4}),
+            'conclusion': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 4}),
+            'submitter': forms.TextInput(attrs={'class': 'form-input'}),
+        }
+
+
+class MigrationRecordEditForm(forms.ModelForm):
+    class Meta:
+        model = MigrationRecord
+        fields = [
+            'title', 'migration_type', 'region', 'dynasty',
+            'start_year', 'end_year', 'start_year_num', 'end_year_num',
+            'reliability', 'migration_reason', 'conclusion'
+        ]
+        widgets = {
+            'title': forms.TextInput(attrs={'class': 'form-input'}),
+            'migration_type': forms.Select(attrs={'class': 'form-select'}),
+            'region': forms.TextInput(attrs={'class': 'form-input'}),
+            'dynasty': forms.TextInput(attrs={'class': 'form-input'}),
+            'start_year': forms.TextInput(attrs={'class': 'form-input'}),
+            'end_year': forms.TextInput(attrs={'class': 'form-input'}),
+            'start_year_num': forms.NumberInput(attrs={'class': 'form-input', 'placeholder': '如：618'}),
+            'end_year_num': forms.NumberInput(attrs={'class': 'form-input', 'placeholder': '如：907'}),
+            'reliability': forms.NumberInput(attrs={'class': 'form-input', 'min': 0, 'max': 100}),
+            'migration_reason': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 4}),
+            'conclusion': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 4}),
+        }
+
+
+class MigrationStageForm(forms.ModelForm):
+    class Meta:
+        model = MigrationStage
+        fields = [
+            'stage_name', 'dynasty', 'start_year', 'end_year',
+            'start_year_num', 'end_year_num', 'place_name_text',
+            'administrative_division', 'region', 'longitude', 'latitude',
+            'coordinate_range', 'description', 'evidence', 'reliability',
+            'order_index'
+        ]
+        widgets = {
+            'stage_name': forms.TextInput(attrs={'class': 'form-input'}),
+            'dynasty': forms.TextInput(attrs={'class': 'form-input'}),
+            'start_year': forms.TextInput(attrs={'class': 'form-input'}),
+            'end_year': forms.TextInput(attrs={'class': 'form-input'}),
+            'start_year_num': forms.NumberInput(attrs={'class': 'form-input', 'placeholder': '如：618'}),
+            'end_year_num': forms.NumberInput(attrs={'class': 'form-input', 'placeholder': '如：907'}),
+            'place_name_text': forms.TextInput(attrs={'class': 'form-input'}),
+            'administrative_division': forms.TextInput(attrs={'class': 'form-input'}),
+            'region': forms.TextInput(attrs={'class': 'form-input'}),
+            'longitude': forms.NumberInput(attrs={'class': 'form-input', 'step': '0.0001'}),
+            'latitude': forms.NumberInput(attrs={'class': 'form-input', 'step': '0.0001'}),
+            'coordinate_range': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 2}),
+            'description': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 3}),
+            'evidence': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 3}),
+            'reliability': forms.NumberInput(attrs={'class': 'form-input', 'min': 0, 'max': 100}),
+            'order_index': forms.NumberInput(attrs={'class': 'form-input'}),
+        }
+
+
+class MigrationEvidenceForm(forms.ModelForm):
+    class Meta:
+        model = MigrationEvidence
+        fields = [
+            'stage', 'literature', 'citation_detail', 'evidence_content',
+            'evidence_type', 'reliability', 'order_index'
+        ]
+        widgets = {
+            'stage': forms.Select(attrs={'class': 'form-select'}),
+            'literature': forms.Select(attrs={'class': 'form-select'}),
+            'citation_detail': forms.TextInput(attrs={'class': 'form-input'}),
+            'evidence_content': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 3}),
+            'evidence_type': forms.TextInput(attrs={'class': 'form-input'}),
+            'reliability': forms.NumberInput(attrs={'class': 'form-input', 'min': 0, 'max': 100}),
+            'order_index': forms.NumberInput(attrs={'class': 'form-input'}),
+        }
+
+
+class MigrationDisputeForm(forms.ModelForm):
+    class Meta:
+        model = MigrationDispute
+        fields = [
+            'stage', 'title', 'content', 'proposer', 'status',
+            'resolution', 'resolver', 'resolved_date'
+        ]
+        widgets = {
+            'stage': forms.Select(attrs={'class': 'form-select'}),
+            'title': forms.TextInput(attrs={'class': 'form-input'}),
+            'content': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 5}),
+            'proposer': forms.TextInput(attrs={'class': 'form-input'}),
+            'status': forms.Select(attrs={'class': 'form-select'}),
+            'resolution': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 3}),
+            'resolver': forms.TextInput(attrs={'class': 'form-input'}),
+            'resolved_date': forms.DateInput(attrs={'class': 'form-input', 'type': 'date'}),
+        }
+
+
+class MigrationReviewForm(forms.Form):
+    ACTION_CHOICES = [
+        ('approve', '审核通过'),
+        ('reject', '审核驳回'),
+    ]
+    action = forms.ChoiceField(
+        choices=ACTION_CHOICES,
+        label='审核操作',
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    comment = forms.CharField(
+        label='审核意见',
+        widget=forms.Textarea(attrs={'class': 'form-textarea', 'rows': 3}),
+        required=False
+    )
+    reviewer = forms.CharField(
+        label='审核人',
+        widget=forms.TextInput(attrs={'class': 'form-input'}),
+        required=False
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        action = cleaned_data.get('action')
+        comment = cleaned_data.get('comment')
+        if action == 'reject' and not comment:
+            raise forms.ValidationError('驳回时必须填写审核意见')
+        return cleaned_data

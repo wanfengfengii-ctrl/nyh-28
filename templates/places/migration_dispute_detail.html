@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ dispute.title }} - 迁移争议详情{% endblock %}
+
+{% block content %}
+    <h2 class="page-title">迁移争议详情</h2>
+
+    <div class="card">
+        <div class="detail-grid" style="margin-bottom: 1rem;">
+            <div class="detail-item">
+                <div class="label">争议标题</div>
+                <div class="value">{{ dispute.title }}</div>
+            </div>
+            <div class="detail-item">
+                <div class="label">状态</div>
+                <div class="value">
+                    {% if dispute.status == 'open' %}
+                        <span class="badge badge-warning">处理中</span>
+                    {% elif dispute.status == 'investigating' %}
+                        <span class="badge badge-info">调查中</span>
+                    {% elif dispute.status == 'resolved' %}
+                        <span class="badge badge-success">已解决</span>
+                    {% elif dispute.status == 'rejected' %}
+                        <span class="badge badge-danger">已驳回</span>
+                    {% elif dispute.status == 'closed' %}
+                        <span class="badge badge-secondary">已关闭</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="detail-item">
+                <div class="label">关联迁移记录</div>
+                <div class="value"><a href="{% url 'places:migration_detail' record.pk %}">{{ record.title }}</a></div>
+            </div>
+            <div class="detail-item">
+                <div class="label">关联阶段</div>
+                <div class="value">{{ dispute.stage.stage_name|default:"-" }}</div>
+            </div>
+            <div class="detail-item">
+                <div class="label">提出者</div>
+                <div class="value">{{ dispute.proposer|default:"-" }}</div>
+            </div>
+            <div class="detail-item">
+                <div class="label">创建时间</div>
+                <div class="value">{{ dispute.created_at|date:"Y-m-d H:i" }}</div>
+            </div>
+        </div>
+
+        <div class="section-divider"></div>
+        <h4>争议内容</h4>
+        <p>{{ dispute.content|linebreaks }}</p>
+
+        {% if dispute.resolution %}
+            <div class="section-divider"></div>
+            <h4>解决方案</h4>
+            <p>{{ dispute.resolution|linebreaks }}</p>
+            <p style="color: #7f8c8d; font-size: 0.9rem;">
+                处理人：{{ dispute.resolver|default:"-" }} | 
+                解决日期：{{ dispute.resolved_date|date:"Y-m-d"|default:"-" }}
+            </p>
+        {% endif %}
+
+        <div class="section-divider"></div>
+        <div class="action-bar">
+            {% if dispute.status == 'open' or dispute.status == 'investigating' %}
+                <a href="{% url 'places:migration_dispute_resolve' dispute.pk %}" class="btn btn-success">解决争议</a>
+            {% endif %}
+            {% if dispute.status == 'resolved' or dispute.status == 'rejected' or dispute.status == 'closed' %}
+                <a href="{% url 'places:migration_dispute_reopen' dispute.pk %}" class="btn btn-warning">重新开启</a>
+            {% endif %}
+            <a href="{% url 'places:migration_detail' record.pk %}" class="btn btn-secondary">返回迁移详情</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>协作批注</h3>
+        <form method="post" action="{% url 'places:annotation_create' 'dispute' dispute.pk %}" style="margin-bottom: 1.5rem;">
+            {% csrf_token %}
+            <div class="form-group">
+                <textarea name="content" class="form-textarea" rows="3" placeholder="添加批注..." required></textarea>
+            </div>
+            <div class="form-group">
+                <input type="text" name="author" class="form-input" placeholder="批注人" style="max-width: 200px;">
+            </div>
+            <button type="submit" class="btn">提交批注</button>
+        </form>
+
+        {% for annotation in annotations %}
+            <div class="annotation-item {% if annotation.is_resolved %}resolved{% endif %}">
+                <div class="annotation-header">
+                    <span>{{ annotation.author|default:"匿名" }} · {{ annotation.created_at|date:"Y-m-d H:i" }}</span>
+                    {% if not annotation.is_resolved %}
+                        <form method="post" action="{% url 'places:annotation_resolve' annotation.pk %}" style="display: inline;">
+                            {% csrf_token %}
+                            <input type="text" name="resolver" placeholder="处理人" style="padding: 0.25rem; font-size: 0.8rem; width: 100px;">
+                            <button type="submit" class="btn btn-success" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">标记解决</button>
+                        </form>
+                    {% else %}
+                        <span class="badge badge-success">已解决 by {{ annotation.resolved_by }}</span>
+                    {% endif %}
+                </div>
+                <div class="annotation-content">{{ annotation.content|linebreaks }}</div>
+            </div>
+        {% empty %}
+            <div class="empty-state">暂无批注</div>
+        {% endfor %}
+    </div>
+{% endblock %}

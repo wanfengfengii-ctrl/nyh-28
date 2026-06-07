@@ -18,6 +18,11 @@ from .models import (
     Annotation,
     OperationLog,
     PlaceNameVersion,
+    MigrationRecord,
+    MigrationStage,
+    MigrationEvidence,
+    MigrationDispute,
+    MigrationVersion,
 )
 from .forms import (
     LiteratureForm,
@@ -34,6 +39,12 @@ from .forms import (
     ReviewForm,
     AnnotationForm,
     LiteratureCitationForm,
+    MigrationRecordForm,
+    MigrationRecordEditForm,
+    MigrationStageForm,
+    MigrationEvidenceForm,
+    MigrationDisputeForm,
+    MigrationReviewForm,
 )
 
 
@@ -159,6 +170,9 @@ def place_detail(request, pk):
     ).order_by('-created_at')
     review_records = place.review_records.all().order_by('-created_at')
     deletion_requests = place.deletion_requests.all().order_by('-created_at')
+    migration_records = MigrationRecord.objects.filter(
+        place_name=place
+    ).order_by('-created_at')
 
     related_places = []
     for rel in relations:
@@ -179,6 +193,7 @@ def place_detail(request, pk):
         'annotations': annotations,
         'review_records': review_records,
         'deletion_requests': deletion_requests,
+        'migration_records': migration_records,
         'can_delete': place.can_delete(),
         'annotation_form': AnnotationForm(),
     }
@@ -1352,3 +1367,642 @@ def operation_log_list(request):
         'action_choices': OperationLog.ACTION_CHOICES,
     }
     return render(request, 'places/operation_log_list.html', context)
+
+
+def migration_list(request):
+    records = MigrationRecord.objects.select_related(
+        'place_name'
+    ).all().order_by('-created_at')
+
+    search_query = request.GET.get('q', '')
+    dynasty = request.GET.get('dynasty', '')
+    region = request.GET.get('region', '')
+    migration_type = request.GET.get('type', '')
+    min_reliability = request.GET.get('min_reliability', '')
+    max_reliability = request.GET.get('max_reliability', '')
+    status = request.GET.get('status', '')
+    has_dispute = request.GET.get('has_dispute', '')
+
+    if search_query:
+        records = records.filter(
+            Q(title__icontains=search_query) |
+            Q(place_name__name__icontains=search_query) |
+            Q(migration_reason__icontains=search_query) |
+            Q(conclusion__icontains=search_query)
+        )
+
+    if dynasty:
+        records = records.filter(dynasty__icontains=dynasty)
+
+    if region:
+        records = records.filter(region__icontains=region)
+
+    if migration_type:
+        records = records.filter(migration_type=migration_type)
+
+    if min_reliability:
+        try:
+            records = records.filter(reliability__gte=int(min_reliability))
+        except ValueError:
+            pass
+
+    if max_reliability:
+        try:
+            records = records.filter(reliability__lte=int(max_reliability))
+        except ValueError:
+            pass
+
+    if status:
+        records = records.filter(status=status)
+
+    if has_dispute == 'yes':
+        records = records.filter(has_dispute=True)
+    elif has_dispute == 'no':
+        records = records.filter(has_dispute=False)
+
+    dynasties = MigrationRecord.objects.values_list(
+        'dynasty', flat=True
+    ).distinct().order_by('dynasty')
+    dynasties = [d for d in dynasties if d]
+
+    regions = MigrationRecord.objects.values_list(
+        'region', flat=True
+    ).distinct().order_by('region')
+    regions = [r for r in regions if r]
+
+    context = {
+        'records': records,
+        'search_query': search_query,
+        'dynasty': dynasty,
+        'region': region,
+        'migration_type': migration_type,
+        'min_reliability': min_reliability,
+        'max_reliability': max_reliability,
+        'status': status,
+        'has_dispute': has_dispute,
+        'dynasties': dynasties,
+        'regions': regions,
+        'migration_type_choices': MigrationRecord.MIGRATION_TYPE_CHOICES,
+        'status_choices': MigrationRecord.STATUS_CHOICES,
+    }
+    return render(request, 'places/migration_list.html', context)
+
+
+def migration_detail(request, pk):
+    record = get_object_or_404(
+        MigrationRecord.objects.select_related('place_name'),
+        pk=pk
+    )
+    stages = record.get_stages_sorted()
+    evidences = record.evidences.select_related('literature', 'stage').order_by('order_index', 'created_at')
+    disputes = record.disputes.select_related('stage').order_by('-created_at')
+    versions = record.versions.all()[:10]
+    annotations = Annotation.objects.filter(
+        target_type='migration', target_id=record.id
+    ).order_by('-created_at')
+
+    stages_data = []
+    for stage in stages:
+        stage_evidences = [e for e in evidences if e.stage_id == stage.id]
+        stages_data.append({
+            'stage': stage,
+            'evidences': stage_evidences,
+        })
+
+    general_evidences = [e for e in evidences if e.stage_id is None]
+
+    context = {
+        'record': record,
+        'stages': stages_data,
+        'general_evidences': general_evidences,
+        'evidences': evidences,
+        'disputes': disputes,
+        'versions': versions,
+        'annotations': annotations,
+        'annotation_form': AnnotationForm(),
+        'stages_json': json.dumps([{
+            'id': s.id,
+            'name': s.stage_name,
+            'dynasty': s.dynasty,
+            'start_year': s.start_year,
+            'end_year': s.end_year,
+            'start_year_num': s.start_year_num,
+            'end_year_num': s.end_year_num,
+            'place_name': s.place_name_text,
+            'admin_division': s.administrative_division,
+            'region': s.region,
+            'longitude': s.longitude,
+            'latitude': s.latitude,
+            'coordinate_range': s.coordinate_range,
+            'description': s.description,
+            'reliability': s.reliability,
+        } for s in stages], ensure_ascii=False),
+    }
+    return render(request, 'places/migration_detail.html', context)
+
+
+def migration_create(request):
+    place_id = request.GET.get('place_id', '')
+    if request.method == 'POST':
+        form = MigrationRecordForm(request.POST)
+        if form.is_valid():
+            record = form.save(commit=False)
+            record.status = 'draft'
+            record.save()
+            OperationLog.log(
+                target_type='migration',
+                target_id=record.id,
+                action='create',
+                target_name=record.title,
+                operator=form.cleaned_data.get('submitter', ''),
+                detail='创建时空迁移对照记录（草稿）',
+                ip_address=_get_client_ip(request),
+            )
+            messages.success(request, f'时空迁移对照 "{record.title}" 创建成功！')
+            return redirect('places:migration_detail', pk=record.pk)
+    else:
+        if place_id:
+            form = MigrationRecordForm(initial={'place_name': place_id})
+        else:
+            form = MigrationRecordForm()
+
+    context = {
+        'form': form,
+        'form_title': '新增时空迁移对照',
+    }
+    return render(request, 'places/form.html', context)
+
+
+def migration_edit(request, pk):
+    record = get_object_or_404(MigrationRecord, pk=pk)
+
+    if record.status == 'approved':
+        messages.error(request, '已审核通过的迁移记录不能编辑')
+        return redirect('places:migration_detail', pk=pk)
+
+    if request.method == 'POST':
+        form = MigrationRecordEditForm(request.POST, instance=record)
+        if form.is_valid():
+            record = form.save()
+            OperationLog.log(
+                target_type='migration',
+                target_id=record.id,
+                action='update',
+                target_name=record.title,
+                detail='更新迁移记录信息',
+                ip_address=_get_client_ip(request),
+            )
+            messages.success(request, f'时空迁移对照 "{record.title}" 更新成功！')
+            return redirect('places:migration_detail', pk=record.pk)
+    else:
+        form = MigrationRecordEditForm(instance=record)
+
+    context = {
+        'form': form,
+        'form_title': '编辑时空迁移对照',
+    }
+    return render(request, 'places/form.html', context)
+
+
+def migration_delete(request, pk):
+    record = get_object_or_404(
+        MigrationRecord.objects.select_related('place_name'),
+        pk=pk
+    )
+    if request.method == 'POST':
+        record_title = record.title
+        record.delete()
+        OperationLog.log(
+            target_type='migration',
+            target_id=pk,
+            action='delete',
+            target_name=record_title,
+            detail='删除迁移记录',
+            ip_address=_get_client_ip(request),
+        )
+        messages.success(request, f'迁移记录 "{record_title}" 已成功删除')
+        return redirect('places:migration_list')
+
+    context = {
+        'object': record,
+        'object_name': record.title,
+        'object_type': '时空迁移对照',
+        'can_delete': True,
+        'cancel_url': reverse('places:migration_detail', args=[pk]),
+    }
+    return render(request, 'places/delete_confirm.html', context)
+
+
+def migration_submit(request, pk):
+    record = get_object_or_404(MigrationRecord, pk=pk)
+
+    if request.method == 'POST':
+        submitter = request.POST.get('submitter', '')
+        try:
+            record.submit_for_review(submitter=submitter)
+            OperationLog.log(
+                target_type='migration',
+                target_id=record.id,
+                action='submit',
+                target_name=record.title,
+                operator=submitter,
+                detail='提交审核',
+                ip_address=_get_client_ip(request),
+            )
+            messages.success(request, f'迁移记录 "{record.title}" 已提交审核！')
+            return redirect('places:migration_detail', pk=pk)
+        except ValidationError as e:
+            messages.error(request, str(e))
+
+    context = {
+        'record': record,
+    }
+    return render(request, 'places/migration_submit.html', context)
+
+
+def migration_review_list(request):
+    records = MigrationRecord.objects.filter(
+        status__in=['submitted']
+    ).select_related('place_name').order_by('-submitted_at')
+
+    context = {
+        'records': records,
+    }
+    return render(request, 'places/migration_review_list.html', context)
+
+
+def migration_review_detail(request, pk):
+    record = get_object_or_404(
+        MigrationRecord.objects.select_related('place_name'),
+        pk=pk
+    )
+    versions = record.versions.all().order_by('-version_number')
+
+    if request.method == 'POST':
+        form = MigrationReviewForm(request.POST)
+        if form.is_valid():
+            action = form.cleaned_data['action']
+            comment = form.cleaned_data['comment']
+            reviewer = form.cleaned_data['reviewer']
+
+            try:
+                if action == 'approve':
+                    record.approve(reviewer=reviewer, comment=comment)
+                    OperationLog.log(
+                        target_type='migration',
+                        target_id=record.id,
+                        action='approve',
+                        target_name=record.title,
+                        operator=reviewer,
+                        detail=f'审核通过：{comment}',
+                        ip_address=_get_client_ip(request),
+                    )
+                    messages.success(request, f'迁移记录 "{record.title}" 审核通过！')
+                else:
+                    record.reject(reviewer=reviewer, comment=comment)
+                    OperationLog.log(
+                        target_type='migration',
+                        target_id=record.id,
+                        action='reject',
+                        target_name=record.title,
+                        operator=reviewer,
+                        detail=f'审核驳回：{comment}',
+                        ip_address=_get_client_ip(request),
+                    )
+                    messages.success(request, f'迁移记录 "{record.title}" 已驳回。')
+                return redirect('places:migration_review_list')
+            except ValidationError as e:
+                form.add_error(None, str(e))
+    else:
+        form = MigrationReviewForm()
+
+    context = {
+        'record': record,
+        'form': form,
+        'versions': versions,
+    }
+    return render(request, 'places/migration_review_detail.html', context)
+
+
+def migration_stage_create(request, migration_pk):
+    record = get_object_or_404(MigrationRecord, pk=migration_pk)
+
+    if request.method == 'POST':
+        form = MigrationStageForm(request.POST)
+        if form.is_valid():
+            stage = form.save(commit=False)
+            stage.migration_record = record
+            stage.save()
+            OperationLog.log(
+                target_type='migration',
+                target_id=record.id,
+                action='create',
+                target_name=record.title,
+                detail=f'添加迁移阶段：{stage.stage_name}',
+                ip_address=_get_client_ip(request),
+            )
+            messages.success(request, f'迁移阶段 "{stage.stage_name}" 添加成功！')
+            return redirect('places:migration_detail', pk=record.pk)
+    else:
+        form = MigrationStageForm()
+
+    context = {
+        'form': form,
+        'record': record,
+        'form_title': '添加迁移阶段',
+    }
+    return render(request, 'places/migration_stage_form.html', context)
+
+
+def migration_stage_edit(request, pk):
+    stage = get_object_or_404(
+        MigrationStage.objects.select_related('migration_record'),
+        pk=pk
+    )
+    record = stage.migration_record
+
+    if request.method == 'POST':
+        form = MigrationStageForm(request.POST, instance=stage)
+        if form.is_valid():
+            stage = form.save()
+            OperationLog.log(
+                target_type='migration',
+                target_id=record.id,
+                action='update',
+                target_name=record.title,
+                detail=f'更新迁移阶段：{stage.stage_name}',
+                ip_address=_get_client_ip(request),
+            )
+            messages.success(request, f'迁移阶段 "{stage.stage_name}" 更新成功！')
+            return redirect('places:migration_detail', pk=record.pk)
+    else:
+        form = MigrationStageForm(instance=stage)
+
+    context = {
+        'form': form,
+        'record': record,
+        'stage': stage,
+        'form_title': '编辑迁移阶段',
+    }
+    return render(request, 'places/migration_stage_form.html', context)
+
+
+def migration_stage_delete(request, pk):
+    stage = get_object_or_404(
+        MigrationStage.objects.select_related('migration_record'),
+        pk=pk
+    )
+    record = stage.migration_record
+
+    if request.method == 'POST':
+        stage_name = stage.stage_name
+        stage.delete()
+        OperationLog.log(
+            target_type='migration',
+            target_id=record.id,
+            action='delete',
+            target_name=record.title,
+            detail=f'删除迁移阶段：{stage_name}',
+            ip_address=_get_client_ip(request),
+        )
+        messages.success(request, f'迁移阶段 "{stage_name}" 已成功删除')
+        return redirect('places:migration_detail', pk=record.pk)
+
+    context = {
+        'object': stage,
+        'object_name': stage.stage_name,
+        'object_type': '迁移阶段',
+        'can_delete': True,
+        'cancel_url': reverse('places:migration_detail', args=[record.pk]),
+    }
+    return render(request, 'places/delete_confirm.html', context)
+
+
+def migration_evidence_create(request, migration_pk):
+    record = get_object_or_404(MigrationRecord, pk=migration_pk)
+
+    if request.method == 'POST':
+        form = MigrationEvidenceForm(request.POST)
+        form.fields['stage'].queryset = record.stages.all()
+        if form.is_valid():
+            evidence = form.save(commit=False)
+            evidence.migration_record = record
+            evidence.save()
+            OperationLog.log(
+                target_type='migration',
+                target_id=record.id,
+                action='create',
+                target_name=record.title,
+                detail=f'添加文献证据：{evidence.literature.title}',
+                ip_address=_get_client_ip(request),
+            )
+            messages.success(request, '文献证据添加成功！')
+            return redirect('places:migration_detail', pk=record.pk)
+    else:
+        form = MigrationEvidenceForm()
+        form.fields['stage'].queryset = record.stages.all()
+
+    literatures = Literature.objects.all().order_by('title')
+    context = {
+        'form': form,
+        'record': record,
+        'literatures': literatures,
+        'form_title': '添加文献证据',
+    }
+    return render(request, 'places/migration_evidence_form.html', context)
+
+
+def migration_evidence_delete(request, pk):
+    evidence = get_object_or_404(
+        MigrationEvidence.objects.select_related('migration_record', 'literature'),
+        pk=pk
+    )
+    record = evidence.migration_record
+
+    if request.method == 'POST':
+        lit_title = evidence.literature.title
+        evidence.delete()
+        OperationLog.log(
+            target_type='migration',
+            target_id=record.id,
+            action='delete',
+            target_name=record.title,
+            detail=f'删除文献证据：{lit_title}',
+            ip_address=_get_client_ip(request),
+        )
+        messages.success(request, '文献证据已成功删除')
+        return redirect('places:migration_detail', pk=record.pk)
+
+    context = {
+        'object': evidence,
+        'object_name': evidence.literature.title,
+        'object_type': '文献证据',
+        'can_delete': True,
+        'cancel_url': reverse('places:migration_detail', args=[record.pk]),
+    }
+    return render(request, 'places/delete_confirm.html', context)
+
+
+def migration_dispute_create(request, migration_pk):
+    record = get_object_or_404(MigrationRecord, pk=migration_pk)
+
+    if request.method == 'POST':
+        form = MigrationDisputeForm(request.POST)
+        form.fields['stage'].queryset = record.stages.all()
+        if form.is_valid():
+            dispute = form.save(commit=False)
+            dispute.migration_record = record
+            dispute.save()
+            OperationLog.log(
+                target_type='migration',
+                target_id=record.id,
+                action='create',
+                target_name=record.title,
+                detail=f'添加争议记录：{dispute.title}',
+                ip_address=_get_client_ip(request),
+            )
+            messages.success(request, f'争议记录 "{dispute.title}" 添加成功！')
+            return redirect('places:migration_detail', pk=record.pk)
+    else:
+        form = MigrationDisputeForm()
+        form.fields['stage'].queryset = record.stages.all()
+
+    context = {
+        'form': form,
+        'record': record,
+        'form_title': '添加迁移争议',
+    }
+    return render(request, 'places/migration_dispute_form.html', context)
+
+
+def migration_dispute_detail(request, pk):
+    dispute = get_object_or_404(
+        MigrationDispute.objects.select_related('migration_record', 'stage'),
+        pk=pk
+    )
+    annotations = Annotation.objects.filter(
+        target_type='dispute', target_id=dispute.id
+    ).order_by('-created_at')
+
+    context = {
+        'dispute': dispute,
+        'record': dispute.migration_record,
+        'annotations': annotations,
+        'annotation_form': AnnotationForm(),
+    }
+    return render(request, 'places/migration_dispute_detail.html', context)
+
+
+def migration_dispute_resolve(request, pk):
+    dispute = get_object_or_404(
+        MigrationDispute.objects.select_related('migration_record'),
+        pk=pk
+    )
+
+    if request.method == 'POST':
+        resolution = request.POST.get('resolution', '')
+        resolver = request.POST.get('resolver', '')
+        if not resolution:
+            messages.error(request, '解决争议时必须填写解决方案')
+        else:
+            dispute.status = 'resolved'
+            dispute.resolution = resolution
+            dispute.resolver = resolver
+            dispute.save()
+            OperationLog.log(
+                target_type='migration',
+                target_id=dispute.migration_record.id,
+                action='resolve',
+                target_name=dispute.migration_record.title,
+                detail=f'解决迁移争议：{dispute.title}',
+                ip_address=_get_client_ip(request),
+            )
+            messages.success(request, '争议已解决！')
+            return redirect('places:migration_dispute_detail', pk=dispute.pk)
+
+    context = {
+        'dispute': dispute,
+    }
+    return render(request, 'places/migration_dispute_resolve.html', context)
+
+
+def migration_dispute_reopen(request, pk):
+    dispute = get_object_or_404(
+        MigrationDispute.objects.select_related('migration_record'),
+        pk=pk
+    )
+
+    if request.method == 'POST':
+        reason = request.POST.get('reason', '')
+        reopener = request.POST.get('reopener', '')
+        if not reason:
+            messages.error(request, '重新开启争议时必须填写理由')
+        else:
+            dispute.status = 'open'
+            dispute.save()
+            OperationLog.log(
+                target_type='migration',
+                target_id=dispute.migration_record.id,
+                action='update',
+                target_name=dispute.migration_record.title,
+                detail=f'重新开启迁移争议：{dispute.title}，理由：{reason[:50]}...',
+                ip_address=_get_client_ip(request),
+            )
+            messages.success(request, '争议已重新开启！')
+            return redirect('places:migration_dispute_detail', pk=dispute.pk)
+
+    context = {
+        'dispute': dispute,
+    }
+    return render(request, 'places/migration_dispute_reopen.html', context)
+
+
+def migration_version_history(request, pk):
+    record = get_object_or_404(
+        MigrationRecord.objects.select_related('place_name'),
+        pk=pk
+    )
+    versions = record.versions.all().order_by('-version_number')
+
+    context = {
+        'record': record,
+        'versions': versions,
+    }
+    return render(request, 'places/migration_version_history.html', context)
+
+
+def migration_map_data(request, pk):
+    record = get_object_or_404(MigrationRecord, pk=pk)
+    stages = record.get_stages_sorted()
+
+    stages_data = []
+    for idx, stage in enumerate(stages):
+        stages_data.append({
+            'id': stage.id,
+            'index': idx,
+            'name': stage.stage_name,
+            'dynasty': stage.dynasty,
+            'start_year': stage.start_year,
+            'end_year': stage.end_year,
+            'start_year_num': stage.start_year_num,
+            'end_year_num': stage.end_year_num,
+            'place_name': stage.place_name_text,
+            'admin_division': stage.administrative_division,
+            'region': stage.region,
+            'longitude': stage.longitude,
+            'latitude': stage.latitude,
+            'coordinate_range': stage.coordinate_range,
+            'description': stage.description,
+            'reliability': stage.reliability,
+        })
+
+    return JsonResponse({
+        'record': {
+            'id': record.id,
+            'title': record.title,
+            'place_name': record.place_name.name,
+            'migration_type': record.get_migration_type_display(),
+            'reliability': record.reliability,
+        },
+        'stages': stages_data,
+    })

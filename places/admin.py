@@ -7,6 +7,11 @@ from .models import (
     NameRelation,
     CollationNote,
     Dispute,
+    MigrationRecord,
+    MigrationStage,
+    MigrationEvidence,
+    MigrationDispute,
+    MigrationVersion,
 )
 
 
@@ -195,3 +200,121 @@ class DisputeAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
+
+
+class MigrationStageInline(admin.TabularInline):
+    model = MigrationStage
+    extra = 1
+    fields = ('stage_name', 'dynasty', 'start_year', 'end_year', 'administrative_division', 'order_index')
+    verbose_name = '迁移阶段'
+    verbose_name_plural = '迁移阶段'
+
+
+class MigrationEvidenceInline(admin.TabularInline):
+    model = MigrationEvidence
+    extra = 1
+    fields = ('literature', 'evidence_type', 'reliability', 'citation_detail')
+    verbose_name = '文献证据'
+    verbose_name_plural = '文献证据'
+
+
+class MigrationDisputeInline(admin.TabularInline):
+    model = MigrationDispute
+    extra = 0
+    fields = ('title', 'proposer', 'status', 'stage')
+    readonly_fields = ('created_at',)
+    verbose_name = '迁移争议'
+    verbose_name_plural = '迁移争议'
+
+
+@admin.register(MigrationRecord)
+class MigrationRecordAdmin(admin.ModelAdmin):
+    list_display = (
+        'title',
+        'place_name',
+        'migration_type',
+        'dynasty',
+        'region',
+        'reliability',
+        'status',
+        'has_disputes',
+    )
+    search_fields = ('title', 'place_name__name', 'region')
+    list_filter = ('migration_type', 'dynasty', 'region', 'reliability', 'status')
+    inlines = [
+        MigrationStageInline,
+        MigrationEvidenceInline,
+        MigrationDisputeInline,
+    ]
+    readonly_fields = ('created_at', 'updated_at')
+
+    def has_disputes(self, obj):
+        return obj.disputes.filter(status__in=['open', 'investigating']).exists()
+    has_disputes.boolean = True
+    has_disputes.short_description = '有未解决争议'
+
+
+@admin.register(MigrationStage)
+class MigrationStageAdmin(admin.ModelAdmin):
+    list_display = (
+        'migration_record',
+        'stage_name',
+        'dynasty',
+        'place_name_text',
+        'administrative_division',
+        'reliability',
+        'order_index',
+    )
+    list_filter = ('dynasty', 'region', 'reliability')
+    search_fields = ('migration_record__title', 'stage_name', 'place_name_text', 'administrative_division')
+    readonly_fields = ('created_at',)
+
+
+@admin.register(MigrationEvidence)
+class MigrationEvidenceAdmin(admin.ModelAdmin):
+    list_display = (
+        'migration_record',
+        'stage',
+        'literature',
+        'evidence_type',
+        'reliability',
+        'citation_detail',
+    )
+    list_filter = ('evidence_type', 'reliability')
+    search_fields = ('migration_record__title', 'literature__title', 'citation_detail', 'evidence_content')
+
+
+@admin.register(MigrationDispute)
+class MigrationDisputeAdmin(admin.ModelAdmin):
+    list_display = (
+        'migration_record',
+        'title',
+        'stage',
+        'proposer',
+        'status',
+        'created_at',
+        'resolved_date',
+    )
+    list_filter = ('status', 'created_at')
+    search_fields = ('migration_record__title', 'title', 'content', 'proposer')
+    readonly_fields = ('created_at',)
+
+
+@admin.register(MigrationVersion)
+class MigrationVersionAdmin(admin.ModelAdmin):
+    list_display = (
+        'migration_record',
+        'version_number',
+        'created_at',
+        'change_fields_display',
+    )
+    list_filter = ('created_at',)
+    search_fields = ('migration_record__title', 'change_fields', 'change_summary')
+    readonly_fields = ('created_at',)
+
+    def change_fields_display(self, obj):
+        fields = obj.change_fields
+        if fields and len(fields) > 0:
+            return ', '.join(fields[:3]) + ('...' if len(fields) > 3 else '')
+        return '-'
+    change_fields_display.short_description = '变更字段'

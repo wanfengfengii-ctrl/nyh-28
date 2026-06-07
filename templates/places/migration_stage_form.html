@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ form_title }} - 地方志古地名校勘系统{% endblock %}
+
+{% block content %}
+    <h2 class="page-title">{{ form_title }}</h2>
+
+    <div class="card">
+        <p style="color: #7f8c8d; margin-bottom: 1rem;">
+            迁移记录：<a href="{% url 'places:migration_detail' record.pk %}">{{ record.title }}</a>
+        </p>
+
+        {% if form.errors %}
+            <div class="form-errors">
+                <ul>
+                    {% for field, errors in form.errors.items %}
+                        {% for error in errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="detail-grid">
+                <div class="form-group">
+                    <label>{{ form.stage_name.label }}</label>
+                    {{ form.stage_name }}
+                </div>
+                <div class="form-group">
+                    <label>{{ form.dynasty.label }}</label>
+                    {{ form.dynasty }}
+                </div>
+                <div class="form-group">
+                    <label>{{ form.start_year.label }}</label>
+                    {{ form.start_year }}
+                </div>
+                <div class="form-group">
+                    <label>{{ form.end_year.label }}</label>
+                    {{ form.end_year }}
+                </div>
+                <div class="form-group">
+                    <label>{{ form.start_year_num.label }}</label>
+                    {{ form.start_year_num }}
+                </div>
+                <div class="form-group">
+                    <label>{{ form.end_year_num.label }}</label>
+                    {{ form.end_year_num }}
+                </div>
+                <div class="form-group">
+                    <label>{{ form.place_name_text.label }}</label>
+                    {{ form.place_name_text }}
+                </div>
+                <div class="form-group">
+                    <label>{{ form.administrative_division.label }}</label>
+                    {{ form.administrative_division }}
+                </div>
+                <div class="form-group">
+                    <label>{{ form.region.label }}</label>
+                    {{ form.region }}
+                </div>
+                <div class="form-group">
+                    <label>{{ form.reliability.label }}</label>
+                    {{ form.reliability }}
+                </div>
+                <div class="form-group">
+                    <label>{{ form.longitude.label }}</label>
+                    {{ form.longitude }}
+                </div>
+                <div class="form-group">
+                    <label>{{ form.latitude.label }}</label>
+                    {{ form.latitude }}
+                </div>
+                <div class="form-group">
+                    <label>{{ form.order_index.label }}</label>
+                    {{ form.order_index }}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>{{ form.coordinate_range.label }}</label>
+                {{ form.coordinate_range }}
+            </div>
+
+            <div class="form-group">
+                <label>{{ form.description.label }}</label>
+                {{ form.description }}
+            </div>
+
+            <div class="form-group">
+                <label>{{ form.evidence.label }}</label>
+                {{ form.evidence }}
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn">保存</button>
+                <a href="{% url 'places:migration_detail' record.pk %}" class="btn btn-secondary">取消</a>
+            </div>
+        </form>
+    </div>
+{% endblock %}

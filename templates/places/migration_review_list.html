@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}迁移审核 - 地方志古地名校勘系统{% endblock %}
+
+{% block content %}
+    <h2 class="page-title">迁移对照审核</h2>
+
+    <div class="card">
+        <table>
+            <thead>
+                <tr>
+                    <th>关联地名</th>
+                    <th>迁移标题</th>
+                    <th>类型</th>
+                    <th>提交人</th>
+                    <th>提交时间</th>
+                    <th>可信度</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in records %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'places:place_detail' record.place_name.pk %}">{{ record.place_name.name }}</a>
+                        </td>
+                        <td>
+                            <a href="{% url 'places:migration_review_detail' record.pk %}">{{ record.title }}</a>
+                        </td>
+                        <td>{{ record.get_migration_type_display }}</td>
+                        <td>{{ record.submitter|default:"-" }}</td>
+                        <td>{{ record.submitted_at|date:"Y-m-d H:i" }}</td>
+                        <td>
+                            <div class="reliability-bar">
+                                <div class="reliability-fill {% if record.reliability >= 80 %}reliability-high{% elif record.reliability >= 50 %}reliability-medium{% else %}reliability-low{% endif %}" style="width: {{ record.reliability }}%;"></div>
+                            </div>
+                            <small>{{ record.reliability }}%</small>
+                        </td>
+                        <td>
+                            <a href="{% url 'places:migration_review_detail' record.pk %}" class="btn" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">审核</a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="7" class="empty-state">
+                            暂无待审核的迁移对照记录
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div style="margin-top: 1rem; color: #7f8c8d; font-size: 0.9rem;">
+            共 {{ records|length }} 条待审核记录
+        </div>
+    </div>
+{% endblock %}

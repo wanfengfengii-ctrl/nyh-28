@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block title %}解决争议 - {{ dispute.title }}{% endblock %}
+
+{% block content %}
+    <h2 class="page-title">解决争议</h2>
+
+    <div class="card">
+        <h3>{{ dispute.title }}</h3>
+        <p style="color: #7f8c8d; margin-bottom: 1rem;">
+            迁移记录：<a href="{% url 'places:migration_detail' dispute.migration_record.pk %}">{{ dispute.migration_record.title }}</a>
+        </p>
+
+        <div class="alert alert-info">
+            <p><strong>争议内容：</strong></p>
+            <p style="margin-top: 0.5rem;">{{ dispute.content|linebreaks }}</p>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>解决方案</label>
+                <textarea name="resolution" class="form-textarea" rows="5" placeholder="请填写解决方案..." required></textarea>
+            </div>
+            <div class="form-group">
+                <label>处理人</label>
+                <input type="text" name="resolver" class="form-input" placeholder="请输入处理人姓名" style="max-width: 300px;">
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-success">确认解决</button>
+                <a href="{% url 'places:migration_dispute_detail' dispute.pk %}" class="btn btn-secondary">取消</a>
+            </div>
+        </form>
+    </div>
+{% endblock %}

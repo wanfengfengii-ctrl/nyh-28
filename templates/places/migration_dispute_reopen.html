@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block title %}重新开启争议 - {{ dispute.title }}{% endblock %}
+
+{% block content %}
+    <h2 class="page-title">重新开启争议</h2>
+
+    <div class="card">
+        <h3>{{ dispute.title }}</h3>
+        <p style="color: #7f8c8d; margin-bottom: 1rem;">
+            迁移记录：<a href="{% url 'places:migration_detail' dispute.migration_record.pk %}">{{ dispute.migration_record.title }}</a>
+        </p>
+
+        <div class="alert alert-warning">
+            <p><strong>当前状态：</strong>
+                {% if dispute.status == 'resolved' %}已解决
+                {% elif dispute.status == 'rejected' %}已驳回
+                {% elif dispute.status == 'closed' %}已关闭
+                {% endif %}
+            </p>
+            {% if dispute.resolution %}
+                <p style="margin-top: 0.5rem;"><strong>原解决方案：</strong></p>
+                <p>{{ dispute.resolution|linebreaks }}</p>
+            {% endif %}
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>重新开启理由</label>
+                <textarea name="reason" class="form-textarea" rows="4" placeholder="请填写重新开启的理由..." required></textarea>
+            </div>
+            <div class="form-group">
+                <label>申请人</label>
+                <input type="text" name="reopener" class="form-input" placeholder="请输入申请人姓名" style="max-width: 300px;">
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-warning">确认重新开启</button>
+                <a href="{% url 'places:migration_dispute_detail' dispute.pk %}" class="btn btn-secondary">取消</a>
+            </div>
+        </form>
+    </div>
+{% endblock %}

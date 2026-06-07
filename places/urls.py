@@ -52,4 +52,28 @@ urlpatterns = [
     path('annotations/<int:pk>/resolve/', views.annotation_resolve, name='annotation_resolve'),
 
     path('operation-logs/', views.operation_log_list, name='operation_log_list'),
+
+    path('migrations/', views.migration_list, name='migration_list'),
+    path('migrations/new/', views.migration_create, name='migration_create'),
+    path('migrations/<int:pk>/', views.migration_detail, name='migration_detail'),
+    path('migrations/<int:pk>/edit/', views.migration_edit, name='migration_edit'),
+    path('migrations/<int:pk>/delete/', views.migration_delete, name='migration_delete'),
+    path('migrations/<int:pk>/submit/', views.migration_submit, name='migration_submit'),
+    path('migrations/<int:pk>/versions/', views.migration_version_history, name='migration_version_history'),
+    path('migrations/<int:pk>/map-data/', views.migration_map_data, name='migration_map_data'),
+
+    path('migration-reviews/', views.migration_review_list, name='migration_review_list'),
+    path('migration-reviews/<int:pk>/', views.migration_review_detail, name='migration_review_detail'),
+
+    path('migrations/<int:migration_pk>/stages/new/', views.migration_stage_create, name='migration_stage_create'),
+    path('migration-stages/<int:pk>/edit/', views.migration_stage_edit, name='migration_stage_edit'),
+    path('migration-stages/<int:pk>/delete/', views.migration_stage_delete, name='migration_stage_delete'),
+
+    path('migrations/<int:migration_pk>/evidences/new/', views.migration_evidence_create, name='migration_evidence_create'),
+    path('migration-evidences/<int:pk>/delete/', views.migration_evidence_delete, name='migration_evidence_delete'),
+
+    path('migrations/<int:migration_pk>/disputes/new/', views.migration_dispute_create, name='migration_dispute_create'),
+    path('migration-disputes/<int:pk>/', views.migration_dispute_detail, name='migration_dispute_detail'),
+    path('migration-disputes/<int:pk>/resolve/', views.migration_dispute_resolve, name='migration_dispute_resolve'),
+    path('migration-disputes/<int:pk>/reopen/', views.migration_dispute_reopen, name='migration_dispute_reopen'),
 ]

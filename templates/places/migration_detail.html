@@ -1,0 +1,986 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ record.title }} - 时空迁移对照 - 地方志古地名校勘系统{% endblock %}
+
+{% block extra_css %}
+    <style>
+        .migration-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .migration-title {
+            font-size: 1.5rem;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+
+        .migration-meta {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+
+        .map-timeline-container {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .map-container {
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            height: 500px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #migration-map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .map-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #95a5a6;
+        }
+
+        .map-placeholder .icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .timeline-container {
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            padding: 1rem;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .timeline-title {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #f39c12;
+        }
+
+        .timeline-item {
+            position: relative;
+            padding-left: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-left: 2px solid #ddd;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .timeline-item:last-child {
+            border-left-color: transparent;
+            padding-bottom: 0;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -6px;
+            top: 0;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #3498db;
+            border: 2px solid white;
+            box-shadow: 0 0 0 2px #3498db;
+            transition: all 0.3s;
+        }
+
+        .timeline-item:hover {
+            background: #f8f9fa;
+        }
+
+        .timeline-item.active {
+            background: #e8f4f8;
+        }
+
+        .timeline-item.active::before {
+            background: #f39c12;
+            box-shadow: 0 0 0 2px #f39c12;
+            transform: scale(1.3);
+        }
+
+        .timeline-item .period {
+            font-size: 0.85rem;
+            color: #7f8c8d;
+            margin-bottom: 0.25rem;
+        }
+
+        .timeline-item .name {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.25rem;
+        }
+
+        .timeline-item .place {
+            font-size: 0.85rem;
+            color: #555;
+        }
+
+        .timeline-item .admin {
+            font-size: 0.8rem;
+            color: #7f8c8d;
+            margin-top: 0.25rem;
+        }
+
+        .stage-detail {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .stage-detail.active {
+            display: block;
+        }
+
+        .stage-detail h4 {
+            color: #2c3e50;
+            margin-bottom: 0.75rem;
+        }
+
+        .stage-detail .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
+
+        .stage-detail .detail-item {
+            font-size: 0.9rem;
+        }
+
+        .stage-detail .detail-label {
+            color: #7f8c8d;
+            font-size: 0.8rem;
+        }
+
+        .stage-detail .detail-value {
+            color: #2c3e50;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .evidence-item {
+            padding: 0.75rem;
+            background: #f8f9fa;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+            border-left: 3px solid #3498db;
+        }
+
+        .evidence-item .lit-title {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.25rem;
+        }
+
+        .evidence-item .citation {
+            font-size: 0.85rem;
+            color: #7f8c8d;
+        }
+
+        .evidence-item .content {
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            color: #555;
+        }
+
+        .map-marker {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: #e74c3c;
+            border: 2px solid white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+            transition: all 0.3s;
+            z-index: 10;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .map-marker:hover {
+            transform: translate(-50%, -50%) scale(1.2);
+            z-index: 20;
+        }
+
+        .map-marker.active {
+            background: #f39c12;
+            transform: translate(-50%, -50%) scale(1.3);
+            z-index: 30;
+        }
+
+        .map-marker .label {
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .map-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .playback-controls {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+
+        .playback-controls button {
+            padding: 0.4rem 0.8rem;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .playback-controls button:hover {
+            background: #f0f0f0;
+            border-color: #3498db;
+            color: #3498db;
+        }
+
+        .playback-controls .progress-bar {
+            flex: 1;
+            height: 6px;
+            background: #ddd;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .playback-controls .progress-fill {
+            height: 100%;
+            background: #3498db;
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        @media (max-width: 900px) {
+            .map-timeline-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div class="migration-header">
+        <div>
+            <h2 class="migration-title">{{ record.title }}</h2>
+            <div class="migration-meta">
+                <span>关联地名：<a href="{% url 'places:place_detail' record.place_name.pk %}">{{ record.place_name.name }}</a></span>
+                <span>类型：{{ record.get_migration_type_display }}</span>
+                {% if record.dynasty %}<span>朝代：{{ record.dynasty }}</span>{% endif %}
+                {% if record.region %}<span>地区：{{ record.region }}</span>{% endif %}
+                <span>
+                    可信度：
+                    <span class="badge {% if record.reliability >= 80 %}badge-success{% elif record.reliability >= 50 %}badge-warning{% else %}badge-danger{% endif %}">
+                        {{ record.reliability }}%
+                    </span>
+                </span>
+                <span>
+                    状态：
+                    {% if record.status == 'draft' %}
+                        <span class="badge badge-secondary">草稿</span>
+                    {% elif record.status == 'submitted' %}
+                        <span class="badge badge-warning">待审核</span>
+                    {% elif record.status == 'approved' %}
+                        <span class="badge badge-success">已通过</span>
+                    {% elif record.status == 'rejected' %}
+                        <span class="badge badge-danger">已驳回</span>
+                    {% endif %}
+                </span>
+                {% if record.has_dispute %}
+                    <span class="badge badge-danger">有争议</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="action-bar">
+            {% if record.status != 'approved' %}
+                <a href="{% url 'places:migration_edit' record.pk %}" class="btn">编辑</a>
+            {% endif %}
+            {% if record.status == 'draft' or record.status == 'rejected' %}
+                <a href="{% url 'places:migration_submit' record.pk %}" class="btn btn-warning">提交审核</a>
+            {% endif %}
+            <a href="{% url 'places:migration_version_history' record.pk %}" class="btn btn-secondary">版本历史</a>
+            <a href="{% url 'places:migration_delete' record.pk %}" class="btn btn-danger">删除</a>
+        </div>
+    </div>
+
+    <div class="map-timeline-container">
+        <div class="map-container">
+            <div id="migration-map">
+                <div class="map-placeholder">
+                    <div class="icon">🗺️</div>
+                    <p>迁移过程地图展示</p>
+                    <p style="font-size: 0.85rem; margin-top: 0.5rem;">点击右侧时间轴节点查看位置</p>
+                </div>
+            </div>
+            <div class="playback-controls">
+                <button onclick="prevStage()">⏮ 上一个</button>
+                <button onclick="togglePlayback()" id="play-btn">▶ 播放</button>
+                <button onclick="nextStage()">下一个 ⏭</button>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <span id="stage-indicator" style="font-size: 0.85rem; color: #7f8c8d;">0 / 0</span>
+            </div>
+        </div>
+        <div class="timeline-container">
+            <div class="timeline-title">时间轴</div>
+            <div id="timeline-list">
+                {% for item in stages %}
+                    <div class="timeline-item" data-index="{{ forloop.counter0 }}" data-stage-id="{{ item.stage.id }}" onclick="selectStage({{ forloop.counter0 }})">
+                        <div class="period">{{ item.stage.dynasty|default:item.stage.start_year }} - {{ item.stage.end_year|default:"至今" }}</div>
+                        <div class="name">{{ item.stage.stage_name }}</div>
+                        {% if item.stage.place_name_text %}
+                            <div class="place">地名：{{ item.stage.place_name_text }}</div>
+                        {% endif %}
+                        {% if item.stage.administrative_division %}
+                            <div class="admin">隶属：{{ item.stage.administrative_division }}</div>
+                        {% endif %}
+                    </div>
+                {% empty %}
+                    <div style="text-align: center; color: #95a5a6; padding: 2rem;">
+                        暂无迁移阶段数据
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div id="stage-detail-container" class="card stage-detail active">
+        <h4 id="stage-detail-title">阶段详情</h4>
+        <div id="stage-detail-content">
+            <p style="color: #95a5a6;">请选择一个迁移阶段查看详情</p>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('stages')">迁移阶段</div>
+        <div class="tab" onclick="switchTab('evidences')">文献证据</div>
+        <div class="tab" onclick="switchTab('disputes')">争议记录</div>
+        <div class="tab" onclick="switchTab('info')">基本信息</div>
+        <div class="tab" onclick="switchTab('annotations')">协作批注</div>
+    </div>
+
+    <div id="tab-stages" class="tab-content active">
+        <div class="card">
+            <div class="action-bar">
+                {% if record.status != 'approved' %}
+                    <a href="{% url 'places:migration_stage_create' record.pk %}" class="btn">添加阶段</a>
+                {% endif %}
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>阶段名称</th>
+                        <th>朝代/时期</th>
+                        <th>年代</th>
+                        <th>当时地名</th>
+                        <th>行政隶属</th>
+                        <th>可信度</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in stages %}
+                        <tr>
+                            <td>{{ item.stage.stage_name }}</td>
+                            <td>{{ item.stage.dynasty|default:"-" }}</td>
+                            <td>{{ item.stage.start_year|default:"-" }} - {{ item.stage.end_year|default:"-" }}</td>
+                            <td>{{ item.stage.place_name_text|default:"-" }}</td>
+                            <td>{{ item.stage.administrative_division|default:"-" }}</td>
+                            <td>
+                                <div class="reliability-bar">
+                                    <div class="reliability-fill {% if item.stage.reliability >= 80 %}reliability-high{% elif item.stage.reliability >= 50 %}reliability-medium{% else %}reliability-low{% endif %}" style="width: {{ item.stage.reliability }}%;"></div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if record.status != 'approved' %}
+                                    <a href="{% url 'places:migration_stage_edit' item.stage.pk %}" class="btn" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">编辑</a>
+                                    <a href="{% url 'places:migration_stage_delete' item.stage.pk %}" class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">删除</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="7" class="empty-state">暂无迁移阶段</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="tab-evidences" class="tab-content">
+        <div class="card">
+            <div class="action-bar">
+                {% if record.status != 'approved' %}
+                    <a href="{% url 'places:migration_evidence_create' record.pk %}" class="btn">添加文献证据</a>
+                {% endif %}
+            </div>
+
+            {% if general_evidences %}
+                <h4 style="margin-bottom: 1rem; color: #2c3e50;">通用证据</h4>
+                {% for evidence in general_evidences %}
+                    <div class="evidence-item">
+                        <div class="lit-title">{{ evidence.literature.title }}</div>
+                        {% if evidence.citation_detail %}
+                            <div class="citation">引用：{{ evidence.citation_detail }}</div>
+                        {% endif %}
+                        {% if evidence.evidence_type %}
+                            <div class="citation">类型：{{ evidence.evidence_type }}</div>
+                        {% endif %}
+                        {% if evidence.evidence_content %}
+                            <div class="content">{{ evidence.evidence_content }}</div>
+                        {% endif %}
+                        <div style="margin-top: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+                            <span class="badge badge-info">可信度：{{ evidence.reliability }}%</span>
+                            {% if record.status != 'approved' %}
+                                <a href="{% url 'places:migration_evidence_delete' evidence.pk %}" class="btn btn-danger" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">删除</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            {% for item in stages %}
+                {% if item.evidences %}
+                    <h4 style="margin: 1.5rem 0 1rem 0; color: #2c3e50; border-left: 4px solid #f39c12; padding-left: 0.8rem;">
+                        {{ item.stage.stage_name }} 相关证据
+                    </h4>
+                    {% for evidence in item.evidences %}
+                        <div class="evidence-item">
+                            <div class="lit-title">{{ evidence.literature.title }}</div>
+                            {% if evidence.citation_detail %}
+                                <div class="citation">引用：{{ evidence.citation_detail }}</div>
+                            {% endif %}
+                            {% if evidence.evidence_type %}
+                                <div class="citation">类型：{{ evidence.evidence_type }}</div>
+                            {% endif %}
+                            {% if evidence.evidence_content %}
+                                <div class="content">{{ evidence.evidence_content }}</div>
+                            {% endif %}
+                            <div style="margin-top: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+                                <span class="badge badge-info">可信度：{{ evidence.reliability }}%</span>
+                                {% if record.status != 'approved' %}
+                                    <a href="{% url 'places:migration_evidence_delete' evidence.pk %}" class="btn btn-danger" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">删除</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endfor %}
+
+            {% if not evidences %}
+                <div class="empty-state">
+                    暂无文献证据
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div id="tab-disputes" class="tab-content">
+        <div class="card">
+            <div class="action-bar">
+                {% if record.status != 'approved' %}
+                    <a href="{% url 'places:migration_dispute_create' record.pk %}" class="btn">添加争议</a>
+                {% endif %}
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>争议标题</th>
+                        <th>关联阶段</th>
+                        <th>提出者</th>
+                        <th>状态</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dispute in disputes %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'places:migration_dispute_detail' dispute.pk %}">{{ dispute.title }}</a>
+                            </td>
+                            <td>{{ dispute.stage.stage_name|default:"-" }}</td>
+                            <td>{{ dispute.proposer|default:"-" }}</td>
+                            <td>
+                                {% if dispute.status == 'open' %}
+                                    <span class="badge badge-warning">处理中</span>
+                                {% elif dispute.status == 'investigating' %}
+                                    <span class="badge badge-info">调查中</span>
+                                {% elif dispute.status == 'resolved' %}
+                                    <span class="badge badge-success">已解决</span>
+                                {% elif dispute.status == 'rejected' %}
+                                    <span class="badge badge-danger">已驳回</span>
+                                {% elif dispute.status == 'closed' %}
+                                    <span class="badge badge-secondary">已关闭</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ dispute.created_at|date:"Y-m-d" }}</td>
+                            <td>
+                                <a href="{% url 'places:migration_dispute_detail' dispute.pk %}" class="btn" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">详情</a>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="6" class="empty-state">暂无争议记录</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="tab-info" class="tab-content">
+        <div class="card">
+            <h3>基本信息</h3>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <div class="label">关联地名</div>
+                    <div class="value"><a href="{% url 'places:place_detail' record.place_name.pk %}">{{ record.place_name.name }}</a></div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">迁移类型</div>
+                    <div class="value">{{ record.get_migration_type_display }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">朝代/年代</div>
+                    <div class="value">{{ record.dynasty|default:"-" }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">所属地区</div>
+                    <div class="value">{{ record.region|default:"-" }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">起始年代</div>
+                    <div class="value">{{ record.start_year|default:"-" }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">结束年代</div>
+                    <div class="value">{{ record.end_year|default:"-" }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">可信度</div>
+                    <div class="value">{{ record.reliability }}%</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">状态</div>
+                    <div class="value">
+                        {% if record.status == 'draft' %}草稿{% elif record.status == 'submitted' %}待审核{% elif record.status == 'approved' %}已通过{% elif record.status == 'rejected' %}已驳回{% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {% if record.migration_reason %}
+                <div class="section-divider"></div>
+                <h4>迁移原因</h4>
+                <p>{{ record.migration_reason|linebreaks }}</p>
+            {% endif %}
+
+            {% if record.conclusion %}
+                <div class="section-divider"></div>
+                <h4>迁移结论</h4>
+                <p>{{ record.conclusion|linebreaks }}</p>
+            {% endif %}
+
+            <div class="section-divider"></div>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <div class="label">提交人</div>
+                    <div class="value">{{ record.submitter|default:"-" }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">提交时间</div>
+                    <div class="value">{{ record.submitted_at|date:"Y-m-d H:i"|default:"-" }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">审核人</div>
+                    <div class="value">{{ record.reviewer|default:"-" }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">审核时间</div>
+                    <div class="value">{{ record.reviewed_at|date:"Y-m-d H:i"|default:"-" }}</div>
+                </div>
+            </div>
+
+            {% if record.review_comment %}
+                <div class="section-divider"></div>
+                <h4>审核意见</h4>
+                <p>{{ record.review_comment|linebreaks }}</p>
+            {% endif %}
+
+            <div class="section-divider"></div>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <div class="label">创建时间</div>
+                    <div class="value">{{ record.created_at|date:"Y-m-d H:i" }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">更新时间</div>
+                    <div class="value">{{ record.updated_at|date:"Y-m-d H:i" }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-annotations" class="tab-content">
+        <div class="card">
+            <h3>协作批注</h3>
+            <form method="post" action="{% url 'places:annotation_create' 'migration' record.pk %}" style="margin-bottom: 1.5rem;">
+                {% csrf_token %}
+                <div class="form-group">
+                    <textarea name="content" class="form-textarea" rows="3" placeholder="添加批注..." required></textarea>
+                </div>
+                <div class="form-group">
+                    <input type="text" name="author" class="form-input" placeholder="批注人" style="max-width: 200px;">
+                </div>
+                <button type="submit" class="btn">提交批注</button>
+            </form>
+
+            {% for annotation in annotations %}
+                <div class="annotation-item {% if annotation.is_resolved %}resolved{% endif %}">
+                    <div class="annotation-header">
+                        <span>{{ annotation.author|default:"匿名" }} · {{ annotation.created_at|date:"Y-m-d H:i" }}</span>
+                        {% if not annotation.is_resolved %}
+                            <form method="post" action="{% url 'places:annotation_resolve' annotation.pk %}" style="display: inline;">
+                                {% csrf_token %}
+                                <input type="text" name="resolver" placeholder="处理人" style="padding: 0.25rem; font-size: 0.8rem; width: 100px;">
+                                <button type="submit" class="btn btn-success" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">标记解决</button>
+                            </form>
+                        {% else %}
+                            <span class="badge badge-success">已解决 by {{ annotation.resolved_by }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="annotation-content">{{ annotation.content|linebreaks }}</div>
+                </div>
+            {% empty %}
+                <div class="empty-state">暂无批注</div>
+            {% endfor %}
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+    <script>
+        var stagesData = {{ stages_json|safe }};
+        var currentStageIndex = -1;
+        var isPlaying = false;
+        var playInterval = null;
+
+        function initMigrationMap() {
+            var mapEl = document.getElementById('migration-map');
+            if (stagesData.length > 0) {
+                renderMapMarkers();
+                updateStageIndicator();
+                updateProgress();
+            }
+        }
+
+        function renderMapMarkers() {
+            var mapEl = document.getElementById('migration-map');
+            var validStages = stagesData.filter(function(s) {
+                return s.longitude !== null && s.latitude !== null;
+            });
+
+            if (validStages.length === 0) {
+                return;
+            }
+
+            mapEl.innerHTML = '<div class="map-line" id="map-line"></div>';
+
+            var mapRect = mapEl.getBoundingClientRect();
+            var mapWidth = mapRect.width;
+            var mapHeight = mapRect.height;
+            var padding = 40;
+
+            var lons = validStages.map(function(s) { return s.longitude; });
+            var lats = validStages.map(function(s) { return s.latitude; });
+            var minLon = Math.min.apply(null, lons);
+            var maxLon = Math.max.apply(null, lons);
+            var minLat = Math.min.apply(null, lats);
+            var maxLat = Math.max.apply(null, lats);
+
+            var lonRange = maxLon - minLon || 1;
+            var latRange = maxLat - minLat || 1;
+            var scale = Math.min(
+                (mapWidth - padding * 2) / lonRange,
+                (mapHeight - padding * 2) / latRange
+            );
+
+            validStages.forEach(function(stage, idx) {
+                var x = padding + (stage.longitude - minLon) * scale;
+                var y = mapHeight - padding - (stage.latitude - minLat) * scale;
+
+                var marker = document.createElement('div');
+                marker.className = 'map-marker';
+                marker.style.left = x + 'px';
+                marker.style.top = y + 'px';
+                marker.dataset.stageId = stage.id;
+                marker.dataset.index = stagesData.indexOf(stage);
+                marker.onclick = function() {
+                    var idx = parseInt(this.dataset.index);
+                    selectStage(idx);
+                };
+
+                var label = document.createElement('div');
+                label.className = 'label';
+                label.textContent = stage.name;
+                marker.appendChild(label);
+
+                mapEl.appendChild(marker);
+            });
+
+            drawPath(validStages, minLon, minLat, scale, padding, mapHeight);
+        }
+
+        function drawPath(stages, minLon, minLat, scale, padding, mapHeight) {
+            if (stages.length < 2) return;
+
+            var svgNS = 'http://www.w3.org/2000/svg';
+            var svg = document.createElementNS(svgNS, 'svg');
+            svg.setAttribute('width', '100%');
+            svg.setAttribute('height', '100%');
+            svg.style.position = 'absolute';
+            svg.style.top = '0';
+            svg.style.left = '0';
+            svg.style.pointerEvents = 'none';
+
+            var pathD = '';
+            stages.forEach(function(stage, idx) {
+                var x = padding + (stage.longitude - minLon) * scale;
+                var y = mapHeight - padding - (stage.latitude - minLat) * scale;
+                if (idx === 0) {
+                    pathD += 'M ' + x + ' ' + y;
+                } else {
+                    pathD += ' L ' + x + ' ' + y;
+                }
+            });
+
+            var path = document.createElementNS(svgNS, 'path');
+            path.setAttribute('d', pathD);
+            path.setAttribute('stroke', '#3498db');
+            path.setAttribute('stroke-width', '2');
+            path.setAttribute('fill', 'none');
+            path.setAttribute('stroke-dasharray', '5,5');
+            svg.appendChild(path);
+
+            var mapEl = document.getElementById('migration-map');
+            mapEl.insertBefore(svg, mapEl.firstChild);
+        }
+
+        function selectStage(index) {
+            if (index < 0 || index >= stagesData.length) return;
+
+            currentStageIndex = index;
+            var stage = stagesData[index];
+
+            document.querySelectorAll('.timeline-item').forEach(function(item, idx) {
+                if (idx === index) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+
+            document.querySelectorAll('.map-marker').forEach(function(marker) {
+                if (parseInt(marker.dataset.index) === index) {
+                    marker.classList.add('active');
+                } else {
+                    marker.classList.remove('active');
+                }
+            });
+
+            showStageDetail(stage);
+            updateStageIndicator();
+            updateProgress();
+
+            var timelineItem = document.querySelectorAll('.timeline-item')[index];
+            if (timelineItem) {
+                timelineItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function showStageDetail(stage) {
+            var titleEl = document.getElementById('stage-detail-title');
+            var contentEl = document.getElementById('stage-detail-content');
+            var container = document.getElementById('stage-detail-container');
+
+            titleEl.textContent = stage.name;
+
+            var html = '<div class="detail-grid">';
+
+            if (stage.dynasty) {
+                html += '<div class="detail-item"><div class="detail-label">朝代/时期</div><div class="detail-value">' + stage.dynasty + '</div></div>';
+            }
+            if (stage.start_year || stage.end_year) {
+                html += '<div class="detail-item"><div class="detail-label">年代</div><div class="detail-value">' + (stage.start_year || '?') + ' - ' + (stage.end_year || '至今') + '</div></div>';
+            }
+            if (stage.place_name) {
+                html += '<div class="detail-item"><div class="detail-label">当时地名</div><div class="detail-value">' + stage.place_name + '</div></div>';
+            }
+            if (stage.admin_division) {
+                html += '<div class="detail-item"><div class="detail-label">行政隶属</div><div class="detail-value">' + stage.admin_division + '</div></div>';
+            }
+            if (stage.region) {
+                html += '<div class="detail-item"><div class="detail-label">所属地区</div><div class="detail-value">' + stage.region + '</div></div>';
+            }
+            if (stage.longitude !== null && stage.latitude !== null) {
+                html += '<div class="detail-item"><div class="detail-label">经纬度</div><div class="detail-value">' + stage.longitude.toFixed(4) + ', ' + stage.latitude.toFixed(4) + '</div></div>';
+            }
+            html += '<div class="detail-item"><div class="detail-label">可信度</div><div class="detail-value">' + stage.reliability + '%</div></div>';
+
+            html += '</div>';
+
+            if (stage.coordinate_range) {
+                html += '<div style="margin-top: 1rem;"><div class="detail-label" style="color: #7f8c8d; font-size: 0.85rem;">坐标范围/四至</div><div class="detail-value" style="margin-top: 0.25rem;">' + stage.coordinate_range + '</div></div>';
+            }
+            if (stage.description) {
+                html += '<div style="margin-top: 1rem;"><div class="detail-label" style="color: #7f8c8d; font-size: 0.85rem;">地理描述</div><div class="detail-value" style="margin-top: 0.25rem;">' + stage.description + '</div></div>';
+            }
+
+            contentEl.innerHTML = html;
+            container.classList.add('active');
+        }
+
+        function nextStage() {
+            if (currentStageIndex < stagesData.length - 1) {
+                selectStage(currentStageIndex + 1);
+            } else if (isPlaying) {
+                stopPlayback();
+            }
+        }
+
+        function prevStage() {
+            if (currentStageIndex > 0) {
+                selectStage(currentStageIndex - 1);
+            }
+        }
+
+        function togglePlayback() {
+            if (isPlaying) {
+                stopPlayback();
+            } else {
+                startPlayback();
+            }
+        }
+
+        function startPlayback() {
+            if (stagesData.length === 0) return;
+            isPlaying = true;
+            document.getElementById('play-btn').textContent = '⏸ 暂停';
+            if (currentStageIndex >= stagesData.length - 1) {
+                currentStageIndex = -1;
+            }
+            playInterval = setInterval(function() {
+                nextStage();
+            }, 2000);
+            if (currentStageIndex === -1) {
+                nextStage();
+            }
+        }
+
+        function stopPlayback() {
+            isPlaying = false;
+            document.getElementById('play-btn').textContent = '▶ 播放';
+            if (playInterval) {
+                clearInterval(playInterval);
+                playInterval = null;
+            }
+        }
+
+        function updateStageIndicator() {
+            var total = stagesData.length;
+            var current = currentStageIndex >= 0 ? currentStageIndex + 1 : 0;
+            document.getElementById('stage-indicator').textContent = current + ' / ' + total;
+        }
+
+        function updateProgress() {
+            var total = stagesData.length;
+            var progress = total > 0 ? ((currentStageIndex + 1) / total * 100) : 0;
+            if (currentStageIndex < 0) progress = 0;
+            document.getElementById('progress-fill').style.width = progress + '%';
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(function(tab) {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-content').forEach(function(content) {
+                content.classList.remove('active');
+            });
+
+            event.target.classList.add('active');
+            document.getElementById('tab-' + tabName).classList.add('active');
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initMigrationMap();
+
+            if (stagesData.length > 0) {
+                selectStage(0);
+            }
+
+            window.addEventListener('resize', function() {
+                if (stagesData.length > 0) {
+                    renderMapMarkers();
+                    var currentMarker = document.querySelector('.map-marker.active');
+                    if (!currentMarker && currentStageIndex >= 0) {
+                        var markers = document.querySelectorAll('.map-marker');
+                        if (markers[currentStageIndex]) {
+                            markers[currentStageIndex].classList.add('active');
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+{% endblock %}

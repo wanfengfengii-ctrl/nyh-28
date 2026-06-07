@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block title %}版本历史 - {{ record.title }}{% endblock %}
+
+{% block content %}
+    <h2 class="page-title">版本历史</h2>
+
+    <div class="card">
+        <p style="color: #7f8c8d; margin-bottom: 1rem;">
+            迁移记录：<a href="{% url 'places:migration_detail' record.pk %}">{{ record.title }}</a>
+        </p>
+
+        {% if versions %}
+            <div class="timeline">
+                {% for version in versions %}
+                    <div class="timeline-item">
+                        <div style="font-weight: 600; color: #2c3e50;">
+                            v{{ version.version_number }}
+                            <span style="font-weight: normal; color: #7f8c8d; font-size: 0.85rem; margin-left: 0.5rem;">
+                                {{ version.created_at|date:"Y-m-d H:i:s" }}
+                            </span>
+                        </div>
+                        {% if version.change_fields %}
+                            <div style="margin-top: 0.5rem; font-size: 0.9rem;">
+                                <strong>变更字段：</strong>
+                                {% for field in version.change_fields %}
+                                    <span class="badge badge-info" style="margin-right: 0.25rem;">{{ field }}</span>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        {% with changes=version.get_changes_dict %}
+                            {% if changes %}
+                                <div style="margin-top: 0.75rem;">
+                                    {% for field, change in changes.items %}
+                                        <div class="version-change">
+                                            <div style="font-size: 0.85rem; color: #7f8c8d; margin-bottom: 0.25rem;">{{ field }}</div>
+                                            <div><span class="old">{{ change.old|default:"(空)" }}</span> → <span class="new">{{ change.new|default:"(空)" }}</span></div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        {% endwith %}
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                暂无版本历史记录
+            </div>
+        {% endif %}
+
+        <div class="form-actions">
+            <a href="{% url 'places:migration_detail' record.pk %}" class="btn btn-secondary">返回详情</a>
+        </div>
+    </div>
+{% endblock %}
